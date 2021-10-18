@@ -22,6 +22,7 @@ The dataset has the following structure:
 ![Rows_Combination](/images/rows_combination.png)
 
 Such rows are combined into a single one by summing up **Amount_HL** and joining the values of **Material**, **MaterialGroup.1**, **MaterialGroup.2** and **MaterialGroup.4** features
+
 4. Add column **dt** which is responsible for time difference (in days) between consecutive orders for each restaraunt 
 
 The resulting dataset has the following form:
