@@ -35,7 +35,7 @@ The resulting dataset has the following form:
 
 Train data contains history of orders from 2012-12-30 till 2017-12-31 (periods with available information are different for each particular restaurant). Test data provides infromation on orders from 2018-01-07 till 2018-07-15 for each restaurant that is present in the train data.
 
-# 3.Feature processing for training/testing the classic Machine Learning models
+# 3. Feature processing for training/testing the classic Machine Learning models
 
 In order to train and test the classic Machine Learning models, we need to process the features in an appropriate manner. 
 
