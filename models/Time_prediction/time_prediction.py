@@ -6,6 +6,7 @@ from sklearn.metrics import r2_score
 import json
 from sacred import Experiment
 import os
+import pandas as pd
 import statistics
 
 
@@ -18,12 +19,13 @@ ex.add_config('C:\\Users\\boeva\\Beer\\Repository\\configs\\basic.json')
 def baseline_model(data_folder, train_file, test_file, look_back):
     model_name = 'Baseline_model_in_time'
     train_data, test_data = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
+
     test_comb = window_combination(test_data, look_back)
     y_pred = []
     y_gt = []
     for (ref_points, pred_point) in test_comb:
-        #y_pred.append(np.mean(test_data.loc[ref_points, 'dt'].values))
-        y_pred.append(mode(test_data.loc[ref_points, 'dt'].values.tolist())[0])
+        y_pred.append(np.mean(test_data.loc[ref_points, 'dt'].values))
+        #y_pred.append(mode(test_data.loc[ref_points, 'dt'].values.tolist())[0])
         y_gt.append(test_data.loc[pred_point, 'dt'])
     r2_metric = r2_score(y_gt, y_pred)
 
