@@ -13,13 +13,18 @@ import statistics
 def mode(array):
     most = max(list(map(array.count, array)))
     return list(set(filter(lambda x: array.count(x) == most, array)))
-ex = Experiment('Baseline_model_in_time')
-ex.add_config('C:\\Users\\boeva\\Beer\\Repository\\configs\\basic.json')
-@ex.automain
-def baseline_model(data_folder, train_file, test_file, look_back):
-    model_name = 'Baseline_model_in_time'
-    train_data, test_data = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
 
+def baseline_model(data_folder, train_file, test_file, look_back, init_data=True):
+
+    if init_data:
+        model_name = 'Baseline_model_in_time'
+        train_data, test_data = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
+    else:
+        model_name = 'Baseline_model_in_time_with_difficult_ship'
+        train_data = pd.read_csv(os.path.join(data_folder, train_file))
+        test_data = pd.read_csv(os.path.join(data_folder, test_file))
+        for df in [train_data, test_data]:
+            df.drop(['Unnamed: 0'], axis=1, inplace=True)
     test_comb = window_combination(test_data, look_back)
     y_pred = []
     y_gt = []
