@@ -1,17 +1,17 @@
 from sklearn.metrics import r2_score
 from data_preparation.features_construction import construct_features
 from data_preparation.target_time import prepare_target_regression
-from xgboost import XGBRegressor
+from sklearn.linear_model import LinearRegression
 import json
 from sacred import Experiment
 import os
 
 
-def xgboost_model(data_folder, train_file, test_file, look_back, init_data=True):
+def linreg_model(data_folder, train_file, test_file, look_back, init_data=True):
     if init_data:
-        model_name = 'XGB_for_time_simple_lookback_10'
+        model_name = 'LREG_for_time_simple_lookback_1'
     else:
-        model_name = 'XGB_for_time_with_difficult_restorant_lookback_10'
+        model_name = 'LREG_for_time_with_difficult_restorant_lookback_10'
 
     X_train, X_test = construct_features(data_folder, train_file, test_file, look_back, init_data=init_data)
     (y_train, y_train_scaled, y_test, y_test_scaled, ss_time) = prepare_target_regression(data_folder,
@@ -19,7 +19,7 @@ def xgboost_model(data_folder, train_file, test_file, look_back, init_data=True)
                                                                                           look_back,
                                                                                           init_data=init_data)
 
-    model = XGBRegressor(random_state=10)
+    model = LinearRegression()
     model.fit(X_train, y_train_scaled)
     y_pred_scaled = model.predict(X_test)
     r2_metric = r2_score(y_test, ss_time.inverse_transform(y_pred_scaled.reshape(-1, 1)))
