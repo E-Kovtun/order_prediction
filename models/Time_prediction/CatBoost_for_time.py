@@ -13,6 +13,18 @@ import os
 
 
 def catboost_model(data_folder, train_file, test_file, look_back, init_data=True):
+    """CatBoost Regression
+
+    data  from OrderDataset
+
+    delete function with one-hot preprocessing
+    made window combination,
+        further in the loop we use it to combine the rows,
+            making mini tables, which we put in pd.Series
+
+    create class Poll, where we provide data and categorical columns
+
+    """
     if init_data:
         model_name = 'CatBoost_for_time_simple_lookback_1'
         X_train, X_test = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
