@@ -1,24 +1,24 @@
 from sklearn.metrics import r2_score
-from data_preparation.features_construction import construct_features
-from data_preparation.target_construction import prepare_target_regression
+from data_preparation.dataset_preparation import OrderDataset
 from xgboost import XGBRegressor
 import json
-from sacred import Experiment
 import os
+from sacred import Experiment
 
 
 ex = Experiment('XGBRegressor')
 ex.add_config('configs/basic.json')
 @ex.automain
-def xgboost_model(data_folder, train_file, test_file, look_back):
+def xgboost_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value):
     model_name = 'XGBRegressor'
-    X_train, X_test = construct_features(data_folder, train_file, test_file, look_back)
-    (y_train, y_train_scaled, y_test, y_test_scaled, ss_amount) = prepare_target_regression(data_folder, train_file, test_file, look_back)
+    order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value)
+    X_train, X_test = order_dataset.construct_features()
+    (y_train, y_train_scaled, y_test, y_test_scaled, mms_target) = order_dataset.prepare_target_regression()
 
     model = XGBRegressor(random_state=10)
     model.fit(X_train, y_train_scaled)
     y_pred_scaled = model.predict(X_test)
-    r2_metric = r2_score(y_test, ss_amount.inverse_transform(y_pred_scaled.reshape(-1, 1)))
+    r2_metric = r2_score(y_test, mms_target.inverse_transform(y_pred_scaled.reshape(-1, 1)))
 
     print(f'{model_name}, test_r2_score = {r2_metric}')
     os.makedirs('results/', exist_ok=True)
