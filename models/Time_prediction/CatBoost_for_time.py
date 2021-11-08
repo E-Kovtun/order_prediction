@@ -26,10 +26,10 @@ def catboost_model(data_folder, train_file, test_file, look_back, init_data=True
 
     """
     if init_data:
-        model_name = 'CatBoost_for_time_simple_lookback_1'
+        model_name = 'CatBoost_for_time_simple_lookback_10'
         X_train, X_test = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
     else:
-        model_name = 'CatBoost_for_time_with_difficult_restorant_lookback_1'
+        model_name = 'CatBoost_for_time_with_difficult_restorant_lookback_4'
         X_train = pd.read_csv(os.path.join(data_folder, train_file))
         X_test = pd.read_csv(os.path.join(data_folder, test_file))
         for df in [X_train, X_test]:
@@ -57,6 +57,7 @@ def catboost_model(data_folder, train_file, test_file, look_back, init_data=True
                       cat_features=['Ship.to', 'PLZ', 'Status', 'Material', 'MaterialGroup.1', 'MaterialGroup.2', 'MaterialGroup.4'])
 
     cat_model = CatBoostRegressor(iterations=2000)
+
     cat_model.fit(train_data, verbose=False, plot=True)
     y_pred_scaled = cat_model.predict(x_test)
     r2_metric = r2_score(y_test, ss_time.inverse_transform(y_pred_scaled.reshape(-1, 1)))

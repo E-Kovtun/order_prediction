@@ -9,7 +9,7 @@ import os
 
 def linreg_model(data_folder, train_file, test_file, look_back, init_data=True):
     if init_data:
-        model_name = 'LREG_for_time_simple_lookback_1'
+        model_name = 'LREG_for_time_simple_lookback_4'
     else:
         model_name = 'LREG_for_time_with_difficult_restorant_lookback_10'
 
