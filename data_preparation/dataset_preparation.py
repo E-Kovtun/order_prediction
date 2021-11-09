@@ -45,11 +45,24 @@ class OrderDataset():
 
         return train, test
 
-    def get_vocab(self, feature_name):
-        encoded_train, _ = self.encode_features()
+    def get_vocab(self, feature_name, init_data=True):
+        if init_data:
+            encoded_train, _ = self.encode_features()
+        else:
+            encoded_train = pd.read_csv(os.path.join(self.data_folder, self.train_file))
+            encoded_train.drop(['Unnamed: 0'], axis=1, inplace=True)
+
         unique_values = np.sort(encoded_train[feature_name].unique())
         vocab = dict(zip(map(str, unique_values), unique_values))
-        return vocab
+        if init_data:
+            return vocab
+        # For loaded data with difficult ship create default vocab.
+        else:
+            ans = dict()
+            for key in vocab.keys():
+                for id in vocab[key].split():
+                    ans[id] = int(id)
+            return dict(sorted(ans.items(), key=lambda item: item[1]))
 
     def prepare_data(self):
         encoded_train, encoded_test = self.encode_features()

@@ -3,13 +3,31 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from scipy import sparse
 import numpy as np
+import pandas as pd
+import os
 from data_preparation.window_split import window_combination
 from data_preparation.features_description import constant_features_one_hot, changing_features_one_hot, \
                                                  features_for_vectorizer, numerical_features
 
 
-def construct_features(data_folder, train_file, test_file, look_back):
-    train_data, test_data = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
+def construct_features(data_folder, train_file, test_file, look_back, init_data=True):
+    """Construct features for time regression problem.
+
+        Parameters
+        ---
+        init_data: bool, default=True
+            Possibility to init new data or load from csv.
+
+    """
+
+    if init_data:
+        train_data, test_data = OrderDataset(data_folder, train_file, test_file, look_back).prepare_data()
+    else:
+        train_data = pd.read_csv(os.path.join(data_folder, train_file))
+        test_data = pd.read_csv(os.path.join(data_folder, test_file))
+        for df in [train_data, test_data]:
+            df.drop(['Unnamed: 0'], axis=1, inplace=True)
+
 
     # OneHotEncoding for categorical features
     ohe_constant = OneHotEncoder()
@@ -24,7 +42,7 @@ def construct_features(data_folder, train_file, test_file, look_back):
     train_sparse_matrices = []
     test_sparse_matrices = []
     for feature_name in features_for_vectorizer:
-        vocab = OrderDataset(data_folder, train_file, test_file, look_back).get_vocab(feature_name)
+        vocab = OrderDataset(data_folder, train_file, test_file, look_back).get_vocab(feature_name, init_data=init_data)
         vectorizer = CountVectorizer(vocabulary=vocab, lowercase=False)
         train_matr = vectorizer.fit_transform(train_data[feature_name].values)
         test_matr = vectorizer.transform(test_data[feature_name].values)
