@@ -7,14 +7,12 @@ import os
 
 
 def linreg_model(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                   predicted_value, file_name, load_data=False):
-    if load_data:
-        model_name = file_name  # 'LREG_for_time_simple_lookback_4'
-    else:
-        model_name = file_name  # 'LREG_for_time_with_difficult_restorant_lookback_10'
+                   predicted_value, file_name):
+
+    model_name = file_name  # 'LREG_for_time_with_difficult_restorant_lookback_10'
 
     order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                                 predicted_value, load_data=load_data)
+                                 predicted_value)
     X_train, X_test = order_dataset.construct_features()
     (y_train, y_train_scaled, y_test, y_test_scaled, ss_time) = order_dataset.prepare_target_regression()
 

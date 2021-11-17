@@ -9,7 +9,7 @@ import numpy as np
 
 
 def catboost_model(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                   predicted_value, file_name, load_data=False):
+                   predicted_value, file_name):
     """CatBoost Regression
 
     data  from OrderDataset
@@ -22,19 +22,11 @@ def catboost_model(data_folder, train_file, test_file, look_back, fix_material, 
     create class Poll, where we provide data and categorical columns
 
     """
-    if load_data:
-        model_name = file_name #'CatBoost_for_time_with_difficult_restorant_lookback_4'
-        order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                                     predicted_value, load_data=load_data)
-        X_train = pd.read_csv(os.path.join(data_folder, train_file))
-        X_test = pd.read_csv(os.path.join(data_folder, test_file))
-        for df in [X_train, X_test]:
-            df.drop(['Unnamed: 0'], axis=1, inplace=True)
-    else:
-        model_name = file_name #'CatBoost_for_time_simple_lookback_10'
-        order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                                     predicted_value)
-        X_train, X_test = order_dataset.preprocess_dataframe()
+
+    model_name = file_name  # 'CatBoost_for_time_simple_lookback_10'
+    order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
+                                 predicted_value)
+    X_train, X_test = order_dataset.preprocess_dataframe()
     print('1')
     train_comb = order_dataset.window_combinations(X_train)
     test_comb = order_dataset.window_combinations(X_test)

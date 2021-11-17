@@ -8,7 +8,7 @@ from scipy import sparse
 
 class OrderDataset:
     def __init__(self, data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value,
-                 load_data=False):
+                 classif=None):
         self.data_folder = data_folder
         self.train_file = train_file
         self.test_file = test_file
@@ -16,12 +16,13 @@ class OrderDataset:
         self.fix_material = fix_material  # whether we consider the history of orders related to particular material
         self.current_info = current_info  # whether to use information related to timastamp for which we make predictions
         self.predicted_value = predicted_value  # 'amount' or 'time'
-        self.load_data = load_data
-
+        self.classif = classif
         if self.predicted_value == 'amount':
             self.target_feature = 'Amount_HL'
         if self.predicted_value == 'time':
             self.target_feature = 'dt'
+        if self.predicted_value == 'classifier':
+            self.target_feature = 'Time_7_or_not'
 
         self.categorical_features = ['Ship.to', 'PLZ', 'Day', 'Month', 'Material', 'Status',
                                      'MaterialGroup.1', 'MaterialGroup.2', 'MaterialGroup.4']
@@ -82,24 +83,12 @@ class OrderDataset:
     def get_vocab(self, feature_name):
         """ Prepare vocabulary of a specified feature for vectorizer input.
         """
-        if self.load_data:
-            encoded_train = pd.read_csv(os.path.join(self.data_folder, self.train_file))
-            encoded_train.drop(['Unnamed: 0'], axis=1, inplace=True)
-        else:
-            encoded_train, _ = self.encode_features()
+
+        encoded_train, _ = self.encode_features()
 
         unique_values = np.sort(encoded_train[feature_name].unique())
         vocab = dict(zip(map(str, unique_values), unique_values))
-
-        if self.load_data:
-            # For loaded data with difficult ships create default vocab.
-            ans = dict()
-            for key in vocab.keys():
-                for id in vocab[key].split():
-                    ans[id] = int(id)
-            return dict(sorted(ans.items(), key=lambda item: item[1]))
-        else:
-            return vocab
+        return vocab
 
     def add_time_difference(self, df):
         """ Add column with time difference between orders.
@@ -114,6 +103,17 @@ class OrderDataset:
             all_differencies.extend(corr_diff if type(corr_diff) == list else [corr_diff])
         df.insert(2, 'dt', all_differencies)
         df.drop('Delivery_Date_week', axis=1, inplace=True)
+        if self.classif:
+            df['Time_7_or_not'] = df['dt']
+            count = 0
+            for i in range(len(df['dt'])):
+                if df['dt'][i] == 7:
+                    df['Time_7_or_not'][i] = 1
+                    count += 1
+                else:
+                    df['Time_7_or_not'][i] = 0
+            print(count/len(df['dt']))
+
 
     def preprocess_dataframe(self):
         """ Combine several steps of dataframe preprocessing: features encoding, grouping of rows, adding of new features.
@@ -152,16 +152,13 @@ class OrderDataset:
     def construct_features(self):
         """ Construct features for Machine Learning algorithms.
         """
-        if self.load_data:
-            train_data = pd.read_csv(os.path.join(self.data_folder, self.train_file))
-            test_data = pd.read_csv(os.path.join(self.data_folder, self.test_file))
-            for df in [train_data, test_data]:
-                df.drop(['Unnamed: 0'], axis=1, inplace=True)
-        else:
-            train_data, test_data = self.preprocess_dataframe()
+
+        train_data, test_data = self.preprocess_dataframe()
 
         ohe_constant = OneHotEncoder()
+        print(train_data[self.constant_features_one_hot])
         train_ohe_constant = ohe_constant.fit_transform(train_data[self.constant_features_one_hot]).toarray()
+        print(test_data[self.constant_features_one_hot])
         test_ohe_constant = ohe_constant.transform(test_data[self.constant_features_one_hot]).toarray()
 
         ohe_changing = OneHotEncoder()
@@ -238,13 +235,8 @@ class OrderDataset:
     def prepare_target_regression(self):
         """ Prepare target variable for a regression problem.
         """
-        if self.load_data:
-            train_data = pd.read_csv(os.path.join(self.data_folder, self.train_file))
-            test_data = pd.read_csv(os.path.join(self.data_folder, self.test_file))
-            for df in [train_data, test_data]:
-                df.drop(['Unnamed: 0'], axis=1, inplace=True)
-        else:
-            train_data, test_data = self.preprocess_dataframe()
+
+        train_data, test_data = self.preprocess_dataframe()
         mms_target = MinMaxScaler()
         train_target = mms_target.fit_transform(train_data[self.target_feature].values.reshape(-1, 1))
         test_target = mms_target.transform(test_data[self.target_feature].values.reshape(-1, 1))
