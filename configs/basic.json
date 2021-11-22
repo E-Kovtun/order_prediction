@@ -2,5 +2,8 @@
   "data_folder": "initial_data/",
   "train_file": "df_beer_train.csv",
   "test_file": "df_beer_test.csv",
-  "look_back": 4
+  "look_back": 2,
+  "fix_material": false,
+  "current_info": false,
+  "predicted_value": "amount"
 }
