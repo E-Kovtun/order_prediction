@@ -27,15 +27,12 @@ def catboost_model(data_folder, train_file, test_file, look_back, fix_material, 
     order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
                                  predicted_value)
     X_train, X_test = order_dataset.preprocess_dataframe()
-    print('1')
     train_comb = order_dataset.window_combinations(X_train)
     test_comb = order_dataset.window_combinations(X_test)
-    print('1')
     x_train = pd.DataFrame(columns=X_train.keys())
     for i, (ref_points) in enumerate(train_comb):
         df = X_train.loc[ref_points[0]]
         x_train = x_train.append(pd.Series(df.iat[0, 0], index=df.columns), ignore_index=True)
-    print('1')
     x_test = pd.DataFrame(columns=X_test.keys())
     for i, (ref_points) in enumerate(test_comb):
         df = X_test.loc[ref_points[0]]
@@ -48,7 +45,6 @@ def catboost_model(data_folder, train_file, test_file, look_back, fix_material, 
                                     'MaterialGroup.4'])
 
     cat_model = CatBoostRegressor(iterations=2000)
-    print('1')
     cat_model.fit(train_data, verbose=False, plot=True)
     y_pred_scaled = cat_model.predict(x_test)
     r2_metric = r2_score(y_test, ss_time.inverse_transform(y_pred_scaled.reshape(-1, 1)))

@@ -36,7 +36,7 @@ class OrderDataset:
             self.constant_features_one_hot = ['Ship.to', 'PLZ']
         # Features that are changing withing the time for a particular restaurant
         self.changing_features_one_hot = ['Day', 'Month', 'Status']
-        self.numerical_features = ['dt', 'Amount_HL']
+        self.numerical_features = ['dt', 'Amount_HL', 'Time_7_or_not']
         self.all_features = self.categorical_features + self.numerical_features
 
     def group_rows(self, df):
@@ -112,7 +112,6 @@ class OrderDataset:
                     count += 1
                 else:
                     df['Time_7_or_not'][i] = 0
-            print(count/len(df['dt']))
 
 
     def preprocess_dataframe(self):
@@ -156,9 +155,7 @@ class OrderDataset:
         train_data, test_data = self.preprocess_dataframe()
 
         ohe_constant = OneHotEncoder()
-        print(train_data[self.constant_features_one_hot])
         train_ohe_constant = ohe_constant.fit_transform(train_data[self.constant_features_one_hot]).toarray()
-        print(test_data[self.constant_features_one_hot])
         test_ohe_constant = ohe_constant.transform(test_data[self.constant_features_one_hot]).toarray()
 
         ohe_changing = OneHotEncoder()

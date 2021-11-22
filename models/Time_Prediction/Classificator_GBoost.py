@@ -13,10 +13,7 @@ def gboost_model_class(data_folder, train_file, test_file, look_back, fix_materi
     (y_train, y_train_scaled, y_test, y_test_scaled, mms_target) = order_dataset.prepare_target_regression()
 
     model = GradientBoostingClassifier(n_estimators=50, learning_rate=0.01, max_depth=5, random_state=10)
-    print("X : ", X_train)
-    print("y : ", y_train_scaled)
-    print("X_train[0] : ", X_train[0])
-    model.fit(X_train, y_train_scaled)
+    model.fit(X_train[:500], y_train_scaled[:500])
     y_pred_scaled = model.predict(X_test)
     y_pred_scaled_1 = model.predict(X_train)
     r2_metric = r2_score(y_test, mms_target.inverse_transform(y_pred_scaled.reshape(-1, 1)))
