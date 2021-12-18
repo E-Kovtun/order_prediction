@@ -7,7 +7,7 @@ import os
 
 
 ex = Experiment('BaselineRegressor')
-ex.add_config('configs/basic.json')
+# ex.add_config('configs/basic.json')
 @ex.automain
 def baseline_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value):
     model_name = 'BaselineRegressor'
@@ -23,6 +23,6 @@ def baseline_model(data_folder, train_file, test_file, look_back, fix_material, 
     r2_metric = r2_score(y_gt, y_pred)
 
     print(f'{model_name}, test_r2_score = {r2_metric}')
-    os.makedirs('results/', exist_ok=True)
-    with open(f'results/{model_name}_metrics.json', 'w', encoding='utf-8') as f:
+    os.makedirs(f'results/{model_name}/', exist_ok=True)
+    with open(f'results/{model_name}/look_back_{look_back}_curr_{current_info}_fix_{fix_material}.json', 'w', encoding='utf-8') as f:
         json.dump({'test_r2_score': r2_metric}, f)

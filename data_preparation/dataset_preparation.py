@@ -12,6 +12,8 @@ class OrderDataset:
         self.train_file = train_file
         self.test_file = test_file
         self.look_back = look_back
+        # self.fix_material = bool(fix_material)
+        # self.current_info = bool(current_info)
         self.fix_material = fix_material  # whether we consider the history of orders related to particular material
         self.current_info = current_info  # whether to use information related to timastamp for which we make predictions
         self.predicted_value = predicted_value  # 'amount' or 'time'
