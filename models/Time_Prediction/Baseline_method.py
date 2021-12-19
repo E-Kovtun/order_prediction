@@ -12,11 +12,11 @@ ex.add_config('configs/basic.json')
 @ex.automain
 '''
 def baseline_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value,
-                   file_name):
+                   file_name, newtime=None):
 
     model_name = file_name
     order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material,
-                                     current_info, predicted_value)
+                                     current_info, predicted_value, newtime=newtime)
     train_data, test_data = order_dataset.preprocess_dataframe()
 
     test_comb = order_dataset.window_combinations(test_data)

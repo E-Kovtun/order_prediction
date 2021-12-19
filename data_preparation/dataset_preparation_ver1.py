@@ -35,7 +35,7 @@ class OrderDataset:
                                               'MaterialGroup.4']
         else:
             # Features that are processed with Bag of Words method
-            self.features_for_vectorizer = ['Material', 'MaterialGroup.1', 'MaterialGroup.2', 'MaterialGroup.4']
+            self.features_for_vectorizer = [] #['Material', 'MaterialGroup.1', 'MaterialGroup.2', 'MaterialGroup.4']
             # Features that are constant within the time for a particular restaurant if a material is not fixed
             self.constant_features_one_hot = ['Ship.to', 'PLZ']
         # Features that are changing withing the time for a particular restaurant
@@ -43,7 +43,7 @@ class OrderDataset:
         if classif:
             self.numerical_features = ['dt', 'Amount_HL', 'Time_7_or_not']
         elif newtime:
-            self.numerical_features = ['Time_less_42', 'Amount_HL']
+            self.numerical_features = ['Amount_HL', 'Time_less_42']
         else:
             self.numerical_features = ['dt', 'Amount_HL']
         self.all_features = self.categorical_features + self.numerical_features
@@ -62,16 +62,13 @@ class OrderDataset:
             for feature_name in self.features_for_vectorizer:
                 df_copy[feature_name] = df_copy[feature_name].apply(lambda x: str(x))
             df_grouped = df_copy.groupby(['Ship.to', 'Delivery_Date_week']).agg({'PLZ': pd.Series.mode,
-                                                                                 'Material': lambda x: ' '.join(x),
+                                                                                 'Material': lambda x: x.mode().loc[0],
                                                                                  'Day': pd.Series.mode,
                                                                                  'Month': pd.Series.mode,
                                                                                  'Status': lambda x: x.mode().loc[0],
-                                                                                 'MaterialGroup.1': lambda x: ' '.join(
-                                                                                     x),
-                                                                                 'MaterialGroup.2': lambda x: ' '.join(
-                                                                                     x),
-                                                                                 'MaterialGroup.4': lambda x: ' '.join(
-                                                                                     x),
+                                                                                 'MaterialGroup.1': lambda x: x.mode().loc[0],
+                                                                                 'MaterialGroup.2': lambda x: x.mode().loc[0],
+                                                                                 'MaterialGroup.4': lambda x: x.mode().loc[0],
                                                                                  'Amount_HL': np.sum}).reset_index()
         return df_grouped
 
@@ -164,7 +161,6 @@ class OrderDataset:
                 index_to_pred = relevant_indices[i + self.look_back]
                 all_combinations.append((current_group, index_to_pred))
         return all_combinations
-
     def construct_features(self):
         """ Construct features for Machine Learning algorithms.
         """
@@ -197,9 +193,9 @@ class OrderDataset:
                 test_sparse_matrices.append(test_matr)
             train_vectorized_features = sparse.hstack(train_sparse_matrices, format='csr').toarray()
             test_vectorized_features = sparse.hstack(test_sparse_matrices, format='csr').toarray()
-            mms = MinMaxScaler()
-            train_vectorized_features = mms.fit_transform(train_vectorized_features)
-            test_vectorized_features = mms.transform(test_vectorized_features)
+            #mms = MinMaxScaler()
+            #train_vectorized_features = mms.fit_transform(train_vectorized_features)
+            #test_vectorized_features = mms.transform(test_vectorized_features)
 
         train_comb = self.window_combinations(train_data)
         test_comb = self.window_combinations(test_data)

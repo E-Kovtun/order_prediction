@@ -9,7 +9,7 @@ import numpy as np
 
 
 def catboost_model(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                   predicted_value, file_name):
+                   predicted_value, file_name,newtime=None):
     """CatBoost Regression
 
     data  from OrderDataset
@@ -25,7 +25,7 @@ def catboost_model(data_folder, train_file, test_file, look_back, fix_material, 
 
     model_name = file_name  # 'CatBoost_for_time_simple_lookback_10'
     order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                                 predicted_value)
+                                 predicted_value, newtime=newtime)
     X_train, X_test = order_dataset.preprocess_dataframe()
     train_comb = order_dataset.window_combinations(X_train)
     test_comb = order_dataset.window_combinations(X_test)

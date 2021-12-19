@@ -9,11 +9,12 @@ from sacred import Experiment
 #ex = Experiment('XGBRegressor')
 #ex.add_config('configs/basic.json')
 #@ex.automain
-def xgboost_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value, file_name):
+def xgboost_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value, file_name,
+                  newtime=None):
 
     model_name = file_name #'XGB_for_time_simple_lookback_10'
     order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info,
-                                 predicted_value)
+                                 predicted_value, newtime=newtime)
     X_train, X_test = order_dataset.construct_features()
     (y_train, y_train_scaled, y_test, y_test_scaled, mms_target) = order_dataset.prepare_target_regression()
 
