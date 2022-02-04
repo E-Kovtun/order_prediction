@@ -54,7 +54,7 @@ Statistics of **Amount_HL** variable (for all data):
 | quantile 0.75  | 1.0         |
 | quantile 1.    | 110.0       |
 
-Metrics for evaluation regression:
+Metrics for evaluation regression. These metrics are calculated after applying inverse transform of MinMaxScaler.
 * R2_score
 * MAPE
 
