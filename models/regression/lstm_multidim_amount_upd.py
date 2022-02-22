@@ -1,5 +1,9 @@
+import random
+
+import numpy as np
 import torch
 from torch import nn
+from torch.nn.functional import one_hot
 
 
 class LSTMEncoding(nn.Module):
@@ -38,6 +42,7 @@ class RegressionNet(nn.Module):
         self.linear_final = nn.Linear(linear_concat2_dim, cat_vocab_size + 1)
 
         self.sigmoid = nn.Sigmoid()
+        self.cat_vocab_size = cat_vocab_size
 
     def forward(self, cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr):
         x_cat_emb = self.cat_embedding(cat_arr)  # [batch_size, look_back, max_day_len0, cat_embedding_dim]
@@ -45,6 +50,14 @@ class RegressionNet(nn.Module):
         x_cat_emb_sum = torch.sum(x_cat_emb, dim=2)  # [batch_size, look_back, cat_embedding_dim]
 
         x_current_cat_emb = self.cat_embedding(current_cat)  # [batch_size, max_day_len1, cat_embedding_dim]
+
+        # These iterations for choosing only one material(as cat feature) in current info
+        for i in range(mask_current_cat.shape[0]):
+            armax = np.argmax(mask_current_cat[i] * np.array([[random.random()] for _ in mask_current_cat[i]]))
+            mask_current_cat[i] *= 0
+            mask_current_cat[i, armax] += np.array([1])
+
+        #print(mask_current_cat[0], mask_current_cat.shape, "mask_current_cat")
         x_current_cat_emb = x_current_cat_emb * mask_current_cat
         x_current_cat_emb_sum = torch.sum(x_current_cat_emb, dim=1).unsqueeze(1)  # [batch_size, 1, cat_embedding_dim]
 
@@ -65,6 +78,8 @@ class RegressionNet(nn.Module):
         x2 = self.relu(x2)
         x_out = self.linear_final(x2)  # [batch_size, cat_vocab_size+1]
         # x_out = self.sigmoid(x_out)
-        x_final = x_out * onehot_current_cat  # [batch_size, cat_vocab_size+1]
 
-        return x_final
+        onehot_current_cat = torch.sum(one_hot(current_cat, num_classes=self.cat_vocab_size+1) * mask_current_cat, dim=1)
+
+        x_final = x_out * onehot_current_cat  # [batch_size, cat_vocab_size+1]
+        return x_final, onehot_current_cat, mask_current_cat
