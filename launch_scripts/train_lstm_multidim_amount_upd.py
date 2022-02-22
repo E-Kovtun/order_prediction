@@ -105,8 +105,8 @@ def train():
             nonzero_indices = batch_onehot_current_cat.reshape(-1).nonzero()
             batch_predicted_amounts = output[nonzero_indices]
 
-            batch_target = batch_target * mask_current_cat.reshape(-1, mask_current_cat.shape[1])
-            batch_gt_amounts = batch_target.reshape(-1)[(batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()][batch_target.reshape(-1).nonzero()]
+            batch_target = batch_target * mask_current_cat.reshape(-1, mask_current_cat.shape[1]) - (mask_current_cat.reshape(-1, mask_current_cat.shape[1]) - 1) * train_dataset.amount_padding_value
+            batch_gt_amounts = batch_target.reshape(-1)[(batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()]
 
             train_predicted_amounts.extend(batch_predicted_amounts.detach().cpu().tolist())
             train_gt_amounts.extend(batch_gt_amounts.detach().cpu().tolist())
@@ -144,9 +144,8 @@ def train():
                 nonzero_indices = batch_onehot_current_cat.reshape(-1).nonzero()
                 batch_predicted_amounts = output[nonzero_indices]
 
-                batch_target = batch_target * mask_current_cat.reshape(-1, mask_current_cat.shape[1])
-                batch_gt_amounts = batch_target.reshape(-1)[(batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()][
-                    batch_target.reshape(-1).nonzero()]
+                batch_target = batch_target * mask_current_cat.reshape(-1, mask_current_cat.shape[1]) - (mask_current_cat.reshape(-1, mask_current_cat.shape[1]) - 1) * train_dataset.amount_padding_value
+                batch_gt_amounts = batch_target.reshape(-1)[(batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()]
 
                 valid_predicted_amounts.extend(batch_predicted_amounts.detach().cpu().tolist())
                 valid_gt_amounts.extend(batch_gt_amounts.detach().cpu().tolist())
