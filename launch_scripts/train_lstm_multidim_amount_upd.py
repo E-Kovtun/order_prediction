@@ -34,12 +34,12 @@ from utils.utils import own_r2_metric
 def train():
 
     data_folder = "C:\\Users\\boeva\\Beer\\"
-    train_file = "df_beer_train.csv"
-    test_file = "df_beer_test.csv"
-    valid_file = "df_beer_test.csv"
+    train_file = "df_beer_train_nn.csv"
+    test_file = "df_beer_valid_nn.csv"
+    valid_file = "df_beer_test_nn.csv"
     look_back = 3
 
-    num_epochs = 500
+    num_epochs = 100
     batch_size = 128
     dataloader_num_workers = 2
 
@@ -169,12 +169,12 @@ def train():
         #    break
 
 #----------------------------------------------
-    net = RegressionNet(linear_num_feat_dim, cat_embedding_dim, lstm_hidden_dim,
-                        cat_vocab_size, id_vocab_size,
-                        id_embedding_dim, linear_concat1_dim, linear_concat2_dim).to(device)
-    net.load_state_dict(torch.load(checkpoint, map_location=device))
+    #net = RegressionNet(linear_num_feat_dim, cat_embedding_dim, lstm_hidden_dim,
+    #                    cat_vocab_size, id_vocab_size,
+    #                    id_embedding_dim, linear_concat1_dim, linear_concat2_dim).to(device)
+    #net.load_state_dict(torch.load(checkpoint, map_location=device))
     net.train(False)
-    print('Testing already done as Valid')
+    print('Testing...')
     test_predicted_amounts = []
     test_gt_amounts = []
     with torch.no_grad():
@@ -183,12 +183,22 @@ def train():
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
              batch_num_arr, batch_id_arr, batch_target] = batch_arrays
-            output = net(batch_cat_arr, batch_mask_cat,
-                         batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-                         batch_num_arr, batch_id_arr).reshape(-1)
+            output, batch_onehot_current_cat, mask_current_cat = net(batch_cat_arr, batch_mask_cat,
+                                                                     batch_current_cat, batch_mask_current_cat,
+                                                                     batch_onehot_current_cat,
+                                                                     batch_num_arr, batch_id_arr)
+            output = output.reshape(-1)
             nonzero_indices = batch_onehot_current_cat.reshape(-1).nonzero()
             batch_predicted_amounts = output[nonzero_indices]
-            batch_gt_amounts = batch_target.reshape(-1)[(batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()]
+
+            batch_target = batch_target * mask_current_cat.reshape(-1, mask_current_cat.shape[1]) - (
+                        mask_current_cat.reshape(-1,
+                                                 mask_current_cat.shape[1]) - 1) * train_dataset.amount_padding_value
+            batch_gt_amounts = batch_target.reshape(-1)[
+                (batch_target.reshape(-1) - train_dataset.amount_padding_value).nonzero()]
+
+            if batch_predicted_amounts.shape[0] != batch_gt_amounts.shape[0]:
+                continue
 
             test_predicted_amounts.extend(batch_predicted_amounts.detach().cpu().tolist())
             test_gt_amounts.extend(batch_gt_amounts.detach().cpu().tolist())
