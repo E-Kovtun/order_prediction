@@ -37,7 +37,7 @@ class OrderReader(Dataset):
     def arrange_matrix(self):
         # full_data_len x look_back x max_day_len0
         cat_arr = pad_sequence([pad_sequence([torch.tensor(self.df_final.loc[ref_i, self.order_dataset.categorical], dtype=torch.int64).unsqueeze(1)
-                                for ref_i in ref_points], padding_value=self.cat_padding_value).squeeze()
+                                for ref_i in ref_points], padding_value=self.cat_padding_value).squeeze(2)
                   for ref_points, pred_point in self.ind_combinations], padding_value=self.cat_padding_value).transpose(1, 0).transpose(2, 1)
 
         # full_data_len x look_back x max_day_len0
@@ -45,7 +45,7 @@ class OrderReader(Dataset):
 
         # full_data_len x max_day_len1
         current_cat = pad_sequence([torch.tensor(self.df_final.loc[pred_point, self.order_dataset.categorical], dtype=torch.int64).unsqueeze(1)
-                      for ref_points, pred_point in self.ind_combinations], padding_value=self.cat_padding_value).squeeze().transpose(1, 0)
+                      for ref_points, pred_point in self.ind_combinations], padding_value=self.cat_padding_value).squeeze(2).transpose(1, 0)
 
         # full_data_len x max_day_len1 x 1
         mask_current_cat = torch.tensor(~(current_cat == self.cat_padding_value), dtype=torch.int64).unsqueeze(2)
@@ -65,7 +65,7 @@ class OrderReader(Dataset):
 
         # full_data_len x max_day_len1
         target_amount = pad_sequence([torch.tensor(self.df_final.loc[pred_point, self.order_dataset.amount], dtype=torch.float32).unsqueeze(1)
-                 for ref_points, pred_point in self.ind_combinations], padding_value=self.amount_padding_value).squeeze().transpose(1, 0)
+                 for ref_points, pred_point in self.ind_combinations], padding_value=self.amount_padding_value).squeeze(2).transpose(1, 0)
 
         # Target for classification task
         # full_data_len x 1

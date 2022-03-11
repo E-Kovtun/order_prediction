@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
 from models.regression.lstm_simultaneous import DoubleVariableNet
-from data_preparation.data_reader_simultaneous import OrderReader
+from data_preparation.data_reader_transactions import OrderReader
 from data_preparation.dataset_preparation_upd import OrderDataset
 from sklearn.metrics import r2_score, mean_absolute_percentage_error, accuracy_score
 import numpy as np
@@ -84,13 +84,16 @@ def mapk(output, multilabel_onehot_target, k):
 def train():
 
     data_folder = "../initial_data/"
-    train_file = "df_beer_train_nn.csv"
-    test_file = "df_beer_test.csv"
-    valid_file = "df_beer_valid_nn.csv"
+    # train_file = "df_beer_train_nn.csv"
+    # test_file = "df_beer_test.csv"
+    # valid_file = "df_beer_valid_nn.csv"
+    train_file = "tr_train.csv"
+    test_file = "tr_test.csv"
+    valid_file = "tr_valid.csv"
     look_back = 3
 
     num_epochs = 500
-    batch_size = 128
+    batch_size = 16
     dataloader_num_workers = 2
 
     optimizer_lr = 1e-3
@@ -102,7 +105,7 @@ def train():
 
     alpha = 1e-4
     model_name = 'LSTM_simultaneous'
-    results_folder = f'../results/{model_name}/'
+    results_folder = f'../results_transactions/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}.pt'
 
     if torch.cuda.is_available():
@@ -147,6 +150,14 @@ def train():
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
              batch_num_arr, batch_id_arr, batch_target_amount, batch_target_cat] = batch_arrays
+            # print(batch_cat_arr.shape)
+            # print(batch_mask_cat.shape)
+            # print(batch_current_cat.shape)
+            # print(batch_mask_current_cat.shape)
+            # print(batch_onehot_current_cat.shape)
+            # print(batch_num_arr.shape)
+            # print(batch_id_arr.shape)
+            # print(batch_target_amount.shape)
             optimizer.zero_grad()
             output_amount, output_material = net(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
 
@@ -176,8 +187,10 @@ def train():
             batch_predicted_amounts = (output_amount * batch_onehot_current_cat).reshape(-1)[nonzero_indices]
             batch_gt_amounts = batch_target_amount.reshape(-1)[(batch_target_amount.reshape(-1) - train_dataset.amount_padding_value).nonzero()]
 
-            loss = regr_loss(batch_predicted_amounts, batch_gt_amounts) + \
-                   alpha * multilabel_crossentropy_loss(output_material, batch_onehot_current_cat)
+            # loss = regr_loss(batch_predicted_amounts, batch_gt_amounts) + \
+            #        alpha * multilabel_crossentropy_loss(output_material, batch_onehot_current_cat)
+            loss = 10**6 * regr_loss(batch_predicted_amounts, batch_gt_amounts) + \
+                   multilabel_crossentropy_loss(output_material, batch_onehot_current_cat)
             epoch_valid_loss += loss.item()
 
         print(f'Epoch {epoch}/{num_epochs} || Valid loss {epoch_valid_loss}')
