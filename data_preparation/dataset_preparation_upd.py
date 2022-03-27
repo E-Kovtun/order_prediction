@@ -5,6 +5,7 @@ from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler,
 from sklearn.feature_extraction.text import CountVectorizer
 from scipy import sparse
 from utils.utils import get_vocab, get_fitted_scaler
+from tqdm import tqdm
 
 
 class OrderDataset:
@@ -15,14 +16,20 @@ class OrderDataset:
         self.valid_file = valid_file
         self.look_back = look_back
 
-        # final columns: id, categorical, amount, date, dt
-        self.id = 'Ship.to'
-        self.categorical = 'Material'
-        self.amount = 'Amount_HL'
-        self.date = 'Delivery_Date_week' # should be in the format YEAR-MONTH-DAY
-        self.dt = 'dt'
+        # # final columns: id, categorical, amount, date, dt
+        # self.id = 'Ship.to'
+        # self.categorical = 'Material'
+        # self.amount = 'Amount_HL'
+        # self.date = 'Delivery_Date_week' # should be in the format YEAR-MONTH-DAY
+        # self.dt = 'dt'
+        # self.target = 'Amount_HL'
 
-        self.target = 'Amount_HL'
+        self.id = 'customer_id'
+        self.categorical = 'mcc_code'
+        self.amount = 'amount'
+        self.date = 'tr_datetime'
+        self.dt = 'dt'
+        self.target = 'amount'
 
     def prepare_features(self, df, categorical_vocab, id_vocab):
         """
@@ -37,15 +44,20 @@ class OrderDataset:
         df_upd[self.categorical] = cat_encoder.fit_transform(df_upd[self.categorical].values.reshape(-1, 1))
         id_encoder = OrdinalEncoder(categories=id_vocab, dtype=np.int64)
         df_upd[self.id] = id_encoder.fit_transform(df_upd[self.id].values.reshape(-1, 1))
-        return df_upd
+
+        df_final = df_upd.groupby([self.id, self.date, self.categorical]).agg({self.amount: 'sum'}).reset_index()
+        return df_final
 
     def group_rows(self, df):
         """
         Rows, which relate to the same day, are combined into one row.
         """
         df_copy = df.copy(deep=True)
-        df_grouped = df_copy.sort_values([self.categorical]).groupby([self.id, self.date]).agg({self.categorical: lambda x: list(x),
-                                                                                                self.amount: lambda x: list(x)}).reset_index()
+        # df_grouped0 = df_copy.groupby([self.id, self.date, self.categorical]).agg({self.amount: 'sum'}).reset_index()
+        df_grouped = df_copy.groupby([self.id, self.date]).agg({self.categorical: lambda x: list(x),
+                                                                self.amount: lambda x: list(x)}).reset_index()
+        # df_grouped = df_copy.sort_values([self.categorical]).groupby([self.id, self.date]).agg({self.categorical: lambda x: list(x),
+        #                                                                                         self.amount: lambda x: list(x)}).reset_index()
         return df_grouped
 
     def add_time_difference(self, df):
@@ -55,7 +67,10 @@ class OrderDataset:
         all_differences = []
         interm_df = df.groupby(self.id)[self.date].apply(lambda x: x.diff())
         for ind in interm_df.index:
-            corr_diff = np.nan_to_num(interm_df.iloc[ind].days).tolist()
+            try:
+                corr_diff = np.nan_to_num(interm_df.iloc[ind].days).tolist()
+            except:
+                corr_diff = np.nan_to_num(interm_df.iloc[ind]).tolist()
             all_differences.extend(corr_diff if type(corr_diff) == list else [corr_diff])
         df.insert(2, self.dt, all_differences)
 
@@ -73,18 +88,35 @@ class OrderDataset:
         id_vocab = get_vocab(train, test, valid, self.id)
         id_vocab_size = id_vocab.shape[1]
         datasets = [train, test, valid]
-        processed_datasets = []
-        mms_amount = get_fitted_scaler(train, test, valid, self.amount)
+        # processed_datasets = []
+        # mms_amount = get_fitted_scaler(train, test, valid, self.amount)
+        # for df in datasets:
+        #     prepared_df = self.prepare_features(df, categorical_vocab, id_vocab)
+        #     prepared_df[self.amount] = mms_amount.transform(prepared_df[self.amount].values.reshape(-1, 1))
+        #     grouped_df = self.group_rows(prepared_df)
+        #     self.add_time_difference(grouped_df)
+        #     processed_datasets.append(grouped_df)
+        #
+        # mms_dt = get_fitted_scaler(*processed_datasets, self.dt)
+        # for df in processed_datasets:
+        #     df[self.dt] = mms_dt.transform(df[self.dt].values.reshape(-1, 1))
+
+        prepared_datasets = []
         for df in datasets:
             prepared_df = self.prepare_features(df, categorical_vocab, id_vocab)
+            prepared_datasets.append(prepared_df)
+
+        processed_datasets = []
+        mms_amount = get_fitted_scaler(*prepared_datasets, self.amount)
+        for prepared_df in prepared_datasets:
             prepared_df[self.amount] = mms_amount.transform(prepared_df[self.amount].values.reshape(-1, 1))
             grouped_df = self.group_rows(prepared_df)
             self.add_time_difference(grouped_df)
             processed_datasets.append(grouped_df)
 
         mms_dt = get_fitted_scaler(*processed_datasets, self.dt)
-        for df in processed_datasets:
-            df[self.dt] = mms_dt.transform(df[self.dt].values.reshape(-1, 1))
+        for processed_df in processed_datasets:
+            processed_df[self.dt] = mms_dt.transform(processed_df[self.dt].values.reshape(-1, 1))
 
         if self.target == self.amount:
             return processed_datasets, mms_amount, cat_vocab_size, id_vocab_size
@@ -107,9 +139,60 @@ class OrderDataset:
                 all_combinations.append((current_group, index_to_pred))
         return all_combinations
 
-# if __name__ == '__main__':
-#     [train_f, test_f, valid_f], mms_amount = OrderDataset('../initial_data/', 'df_beer_train_nn.csv', 'df_beer_test.csv', 'df_beer_valid_nn.csv', 3).preprocess_dataframe()
-#     print(train_f[['dt', 'Amount_HL']])
+    def construct_features(self):
+        """
+        Construct features and target for Machine Learning algorithms.
+        """
+        [train_final, test_final, _], mms, cat_vocab_size, id_vocab_size = self.preprocess_dataframe()
+        test_ind_combinations = self.window_combinations(test_final)
+
+        # X [Ship.to, Material, dt]
+        # y [Amount_HL]
+
+        X_train_arr = np.array([[train_final.loc[ind, self.id], train_final.loc[ind, self.categorical][j], train_final.loc[ind, self.dt]]
+                      for ind in range(len(train_final)) for j in range(len(train_final.loc[ind, self.categorical]))])
+        ohe = OneHotEncoder(categories=[np.arange(id_vocab_size), np.arange(cat_vocab_size)], sparse=False)
+        X_train = np.concatenate((ohe.fit_transform(X_train_arr[:, :2]), X_train_arr[:, 2].reshape(-1, 1)), axis=1)
+        y_train = np.array([[train_final.loc[ind, self.amount][j]]
+                            for ind in range(len(train_final)) for j in range(len(train_final.loc[ind, self.categorical]))])
+
+        X_test_arr = np.array([[test_final.loc[pred_point, self.id], test_final.loc[pred_point, self.categorical][j], test_final.loc[pred_point, self.dt]]
+                      for ref_points, pred_point in test_ind_combinations for j in range(len(test_final.loc[pred_point, self.categorical]))])
+        X_test = np.concatenate((ohe.transform(X_test_arr[:, :2]), X_test_arr[:, 2].reshape(-1, 1)), axis=1)
+        y_test = np.array([[test_final.loc[pred_point, self.amount][j]]
+                            for ref_points, pred_point in test_ind_combinations for j in range(len(test_final.loc[pred_point, self.categorical]))])
+
+        return [X_train, y_train, X_test, y_test], mms
+
+    def construct_features_joining(self):
+        """
+        Construct features and target for Machine Learning algorithms.
+        """
+        [train_final, test_final, _], mms, cat_vocab_size, id_vocab_size = self.preprocess_dataframe()
+        train_ind_combinations = self.window_combinations(train_final)
+        test_ind_combinations = self.window_combinations(test_final)
+
+        # X [Ship.to, Material, dt]
+        # y [Amount_HL]
+
+        ohe_id = OneHotEncoder(categories=np.arange(id_vocab_size).reshape(1, -1), sparse=False)
+        ohe_cat = OneHotEncoder(categories=np.arange(cat_vocab_size).reshape(1, -1), sparse=False)
+        vect_vocab = dict(zip(map(str, np.arange(cat_vocab_size)), np.arange(cat_vocab_size)))
+        vectorizer = CountVectorizer(vocabulary=vect_vocab, lowercase=False, token_pattern=r"\b\w+\b")
+        ml_datasets = []
+        for df_final, ind_combinations in zip([train_final, test_final], [train_ind_combinations, test_ind_combinations]):
+            X = np.array([ohe_id.fit_transform(np.array(df_final.loc[ref_points[0], self.id]).reshape(1, -1)).reshape(-1).tolist() + \
+                vectorizer.fit_transform(df_final.loc[ref_points, self.categorical].apply(lambda x: ' '.join([str(xx) for xx in x]))).toarray().flatten().tolist() + \
+                df_final.loc[ref_points, self.dt].values.tolist() + \
+                df_final.loc[ref_points, self.amount].apply(lambda x: np.sum(x)).values.tolist() + \
+                ohe_cat.fit_transform(np.array(df_final.loc[pred_point, self.categorical][j]).reshape(1, -1)).reshape(-1).tolist()
+                for ref_points, pred_point in tqdm(ind_combinations) for j in range(len(df_final.loc[pred_point, self.categorical]))])
+            y = np.array([[df_final.loc[pred_point, self.amount][j]]
+                          for ref_points, pred_point in ind_combinations for j in range(len(df_final.loc[pred_point, self.categorical]))])
+            ml_datasets.append(X)
+            ml_datasets.append(y)
+        return ml_datasets, mms
+
 
     # def construct_features(self):
     #     """ Construct features for Machine Learning algorithms.

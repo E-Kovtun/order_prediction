@@ -17,6 +17,13 @@ def get_fitted_scaler(df_train, df_test, df_valid, feature_name):
     return mms
 
 
+def get_max_cat_len(df_final, cat_feature):
+    history_lengths = []
+    for i in range(len(df_final)):
+        history_lengths.append(len(df_final.loc[i, cat_feature]))
+    return np.max(history_lengths)
+
+
 def own_r2_metric(output, target):
     target_mean = torch.mean(target)
     ss_res = torch.sum((target - output) ** 2)
