@@ -21,10 +21,10 @@ class TransformerNet(nn.Module):
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(cat_vocab_size , cat_vocab_size)
 
-    def forward(self, cat_arr, dt_arr, amount_arr, id_arr):
+    def forward(self, cat_arr, dt_arr, amount_arr, id_arr, device):
         x_id_emb = self.id_embedding(id_arr).unsqueeze(1)  # [batch_size, 1, emb_dim]
 
-        x_cat_emb = self.cat_embedding(torch.arange(self.cat_vocab_size)) # [batch_size, cat_vocab_size, emb_dim]
+        x_cat_emb = self.cat_embedding(torch.arange(self.cat_vocab_size).to(device)) # [batch_size, cat_vocab_size, emb_dim]
 
         x_dt_emb = torch.stack([torch.stack([torch.stack([self.dt_embedding(dt_arr[b, lb]) if i in cat_arr[b, lb, :]
                                                           else torch.zeros(self.emb_dim, dtype=torch.float32)

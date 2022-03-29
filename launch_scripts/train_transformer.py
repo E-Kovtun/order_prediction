@@ -73,7 +73,7 @@ def train():
     early_stopping_patience = 15
 
     model_name = 'Transformer1'
-    results_folder = f'../results_transactions/{model_name}/'
+    results_folder = f'../results/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pal.pt'
 
     if torch.cuda.is_available():
@@ -113,7 +113,7 @@ def train():
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
             optimizer.zero_grad()
-            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
 
             batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
                                                   dtype=torch.int64).unsqueeze(2).to(device)
@@ -133,7 +133,7 @@ def train():
         for batch_ind, batch_arrays in enumerate(valid_dataloader):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
 
             batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
                                                   dtype=torch.int64).unsqueeze(2).to(device)
@@ -162,7 +162,7 @@ def train():
     gt_list = []
     for batch_ind, batch_arrays in enumerate(test_dataloader):
         [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-        output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+        output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
 
         batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
                                               dtype=torch.int64).unsqueeze(2).to(device)
