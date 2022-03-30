@@ -7,11 +7,14 @@ class TransformerNet(nn.Module):
         super(TransformerNet, self).__init__()
 
         self.cat_vocab_size = cat_vocab_size
+        self.amount_vocab_size = amount_vocab_size
         self.emb_dim = emb_dim
 
         self.id_embedding = nn.Embedding(num_embeddings=id_vocab_size, embedding_dim=emb_dim)
-        self.cat_embedding = nn.Embedding(num_embeddings=cat_vocab_size, embedding_dim=emb_dim)
-        self.amount_embedding = nn.Embedding(num_embeddings=amount_vocab_size, embedding_dim=emb_dim)
+        self.cat_embedding = nn.Embedding(num_embeddings=cat_vocab_size+1, embedding_dim=emb_dim,
+                                          padding_idx=cat_vocab_size)
+        self.amount_embedding = nn.Embedding(num_embeddings=amount_vocab_size+1, embedding_dim=emb_dim,
+                                             padding_idx=amount_vocab_size)
         self.dt_embedding = nn.Embedding(num_embeddings=dt_vocab_size, embedding_dim=emb_dim)
 
         self.transformer_encoder = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=2, dim_feedforward=emb_dim,
@@ -23,24 +26,27 @@ class TransformerNet(nn.Module):
 
     def forward(self, cat_arr, dt_arr, amount_arr, id_arr):
         x_id_emb = self.id_embedding(id_arr).unsqueeze(1)  # [batch_size, 1, emb_dim]
+        x_mask_cat = torch.tensor(~(cat_arr == self.cat_vocab_size), dtype=torch.int64).unsqueeze(3) # [batch_size, look_back, max_cat_len, 1]
+        x_cat_emb = torch.sum((self.cat_embedding(cat_arr) * x_mask_cat), dim=2) # [batch_size, look_back, emb_dim]
+        x_amount_emb = torch.sum((self.amount_embedding(amount_arr) * x_mask_cat), dim=2) # [batch_size, look_back, emb_dim]
+        x_dt_emb = self.dt_embedding(dt_arr) # [batch_size, look_back, emb_dim]
 
-        x_cat_emb = torch.stack([torch.stack([torch.sum(torch.stack([self.cat_embedding(cat_arr[b, lb, j])
-                                                        for j in torch.where(cat_arr[b, lb, :]!=self.cat_vocab_size)[0]], dim=0), dim=0)
-                                              for lb in range(cat_arr.shape[1])], dim=0)
-                                for b in range(cat_arr.shape[0])], dim=0) # [batch_size, look_back, emb_dim]
-
-        x_amount_emb = torch.stack([torch.stack([torch.sum(torch.stack([self.amount_embedding(amount_arr[b, lb, j])
-                                                           for j in torch.where(cat_arr[b, lb, :]!=self.amount_vocab_size)[0]], dim=0), dim=0)
-                                                 for lb in range(amount_arr.shape[1])], dim=0)
-                                    for b in range(amount_arr.shape[0])], dim=0) # [batch_size, look_back, emb_dim]
-
-        x_dt_emb = torch.stack([torch.stack([self.dt_embedding(dt_arr[b, lb]) for lb in range(dt_arr.shape[1])], dim=0)
-                                for b in range(dt_arr.shape[0])]) # [batch_size, look_back, emb_dim]
+        # x_cat_emb = torch.stack([torch.stack([torch.sum(torch.stack([self.cat_embedding(cat_arr[b, lb, j])
+        #                                                 for j in torch.where(cat_arr[b, lb, :]!=self.cat_vocab_size)[0]], dim=0), dim=0)
+        #                                       for lb in range(cat_arr.shape[1])], dim=0)
+        #                         for b in range(cat_arr.shape[0])], dim=0) # [batch_size, look_back, emb_dim]
+        #
+        # x_amount_emb = torch.stack([torch.stack([torch.sum(torch.stack([self.amount_embedding(amount_arr[b, lb, j])
+        #                                                    for j in torch.where(amount_arr[b, lb, :]!=self.amount_vocab_size)[0]], dim=0), dim=0)
+        #                                          for lb in range(amount_arr.shape[1])], dim=0)
+        #                             for b in range(amount_arr.shape[0])], dim=0) # [batch_size, look_back, emb_dim]
+        #
+        # x_dt_emb = torch.stack([torch.stack([self.dt_embedding(dt_arr[b, lb]) for lb in range(dt_arr.shape[1])], dim=0)
+        #                         for b in range(dt_arr.shape[0])]) # [batch_size, look_back, emb_dim]
 
         x_encoder_input = torch.cat([x_id_emb, (x_cat_emb + x_amount_emb + x_dt_emb)], dim=1) # [batch_size, look_back+1, emb_dim]
         x_encoder_output = self.transformer_encoder(x_encoder_input)[:, 1:, :] # [batch_size, look_back, emb_dim]
         x_encoder_output = torch.mean(x_encoder_output, dim=1)  # [batch_size, emb_dim]
-        # x_encoder_output = torch.mean(x_encoder_output, dim=2) # [batch_size, 3]
 
         x1 = self.linear1(x_encoder_output) # [batch_size, cat_vocab_size]
         x1 = self.relu(x1)

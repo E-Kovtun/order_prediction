@@ -72,7 +72,7 @@ def train():
 
     early_stopping_patience = 15
 
-    model_name = 'Transformer1'
+    model_name = 'Transformer10'
     results_folder = f'../results/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pal.pt'
 
@@ -90,8 +90,6 @@ def train():
     amount_vocab_size = train_dataset.amount_vocab_size
     dt_vocab_size = train_dataset.dt_vocab_size
     emb_dim = 128
-
-    cat_padding_value = train_dataset.cat_padding_value
 
     net = TransformerNet(cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim).to(device)
 
@@ -113,9 +111,9 @@ def train():
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
             optimizer.zero_grad()
-            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
+            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
 
-            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
+            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
                                                   dtype=torch.int64).unsqueeze(2).to(device)
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
@@ -133,9 +131,9 @@ def train():
         for batch_ind, batch_arrays in enumerate(valid_dataloader):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
+            output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
 
-            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
+            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
                                                   dtype=torch.int64).unsqueeze(2).to(device)
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
@@ -162,9 +160,9 @@ def train():
     gt_list = []
     for batch_ind, batch_arrays in enumerate(test_dataloader):
         [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-        output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, device)
+        output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
 
-        batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_padding_value),
+        batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
                                               dtype=torch.int64).unsqueeze(2).to(device)
         batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                      num_classes=cat_vocab_size + 1) * batch_mask_current_cat, dim=1).to(device)

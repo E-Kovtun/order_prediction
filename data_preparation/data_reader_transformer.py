@@ -22,13 +22,8 @@ class OrderReader(Dataset):
             self.df_final, self.ind_combinations = valid_final, self.order_dataset.window_combinations(valid_final)
 
         self.cat_vocab_size = cat_vocab_size
-        self.cat_padding_value = cat_vocab_size
-
         self.id_vocab_size = id_vocab_size
-
         self.amount_vocab_size = amount_vocab_size
-        self.amount_padding_value = amount_vocab_size
-
         self.dt_vocab_size = dt_vocab_size
         self.dt_encoder = dt_encoder
 
@@ -42,14 +37,14 @@ class OrderReader(Dataset):
         cat_arr = torch.stack([pad(input=torch.tensor(self.df_final.loc[ref_i, self.order_dataset.categorical], dtype=torch.int64),
                                    pad=(0, self.max_cat_len - len(self.df_final.loc[ref_i, self.order_dataset.categorical])),
                                    mode='constant',
-                                   value=self.cat_padding_value)
+                                   value=self.cat_vocab_size)
                                for ref_i in self.ind_combinations[index][0]], dim=0)
 
         # max_cat_len
         current_cat = pad(input=torch.tensor(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical], dtype=torch.int64),
                           pad=(0, self.max_cat_len - len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical])),
                           mode='constant',
-                          value=self.cat_padding_value)
+                          value=self.cat_vocab_size)
 
         # look_back
         dt_arr = torch.tensor([self.dt_encoder.fit_transform(np.array(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.dt] -
@@ -60,7 +55,7 @@ class OrderReader(Dataset):
         amount_arr = torch.stack([pad(input=torch.tensor(self.df_final.loc[ref_i, self.order_dataset.amount], dtype=torch.int64),
                                       pad=(0, self.max_cat_len - len(self.df_final.loc[ref_i, self.order_dataset.amount])),
                                       mode='constant',
-                                      value=self.amount_padding_value)
+                                      value=self.amount_vocab_size)
                                   for ref_i in self.ind_combinations[index][0]], dim=0)
 
         id_arr = torch.tensor(self.df_final.loc[self.ind_combinations[index][0][0], self.order_dataset.id],
