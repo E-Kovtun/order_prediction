@@ -71,12 +71,10 @@ class ClassificationNet(nn.Module):
         return x_material
 
 
-
 class Fd(torch.nn.Module):
     """
-    Simple fully connected network.
+    Simple fully connected decoder network, part of C2AE.
     """
-
     def __init__(self, in_dim, H, out_dim, fin_act=None):
         super(Fd, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H)
@@ -90,6 +88,9 @@ class Fd(torch.nn.Module):
 
 
 class Fx(torch.nn.Module):
+    """
+    Simple fully connected network for input x, part of C2AE.
+    """
     def __init__(self, in_dim, H1, H2, out_dim):
         super(Fx, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H1)
@@ -104,7 +105,9 @@ class Fx(torch.nn.Module):
 
 
 class Fe(torch.nn.Module):
-
+    """
+    Simple fully connected encoder network, part of C2AE.
+    """
     def __init__(self, in_dim, H, out_dim):
         super(Fe, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H)
@@ -172,9 +175,6 @@ class C2AE(torch.nn.Module):
     def corr_loss(self, preds, y):
         """This method compares the predicted probabilitie class distribution
         from the decoder, with the true y labels.
-
-        How to vectorize this computation was inspired from this implementation:
-        https://github.com/hinanmu/C2AE_tensorflow/blob/master/src/network.py
         """
         # Generate masks for [0,1] elements.
         ones = (y == 1)
@@ -201,8 +201,6 @@ class C2AE(torch.nn.Module):
         """
         Loss between latent space generated from fx, and fe.
         ||Fx(x) - Fe(y)||^2 s.t. FxFx^2 = FyFy^2 = I
-        This is seen in equation (2), and implemention details seen in
-        decomposed version of loss.
         First version contains decomposition of loss function, making use of
         lagrange multiplier to account for constraint.
         Second version just calculates the mean squared error.
