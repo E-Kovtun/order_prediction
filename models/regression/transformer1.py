@@ -54,8 +54,10 @@ class TransformerNet(nn.Module):
         x_onehot_cat = torch.sum(one_hot(cat_arr, num_classes=self.cat_vocab_size+1) * x_mask_cat, dim=2)[:, :, :-1 ]# [batch_size, look_back, cat_vocab_size]
 
         x_amount_emb = torch.sum(self.amount_embedding(x_onehot_cat.index_put_(indices=torch.where(x_onehot_cat==0),
-                                               values=torch.tensor(self.amount_vocab_size)).index_put_(indices=torch.where(x_onehot_cat==1),
-                                                                 values=amount_arr.flatten()[amount_arr.flatten()!=self.amount_vocab_size])) *
+                                               values=torch.tensor(self.amount_vocab_size,
+                                                                   device=torch.device('cuda:0') if torch.cuda.is_available()
+                                                                   else torch.device('cpu'))).index_put_(indices=torch.where(x_onehot_cat==1),
+                                                                                        values=amount_arr.flatten()[amount_arr.flatten()!=self.amount_vocab_size])) *
                                  x_onehot_cat.unsqueeze(3), dim=1) # [batch_size, cat_vocab_size, emb_dim]
 
         x_dt_emb = torch.sum(self.dt_embedding(dt_arr).unsqueeze(2).expand(-1, -1, self.cat_vocab_size, -1) * x_onehot_cat.unsqueeze(3), dim=1) # [batch_size, cat_vocab_size, emb_dim ]
