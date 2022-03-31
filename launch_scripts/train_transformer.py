@@ -159,6 +159,7 @@ def train():
     output_list = []
     gt_list = []
     for batch_ind, batch_arrays in enumerate(test_dataloader):
+        batch_arrays = [arr.to(device) for arr in batch_arrays]
         [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
         output_material = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
 
