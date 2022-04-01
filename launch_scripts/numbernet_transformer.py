@@ -132,7 +132,7 @@ def train():
 
 #------------------------------------------------------------
 
-    number_net = NumberNet(cat_vocab_size, cat_vocab_size).to(device)
+    number_net = NumberNet(cat_vocab_size, max_cat_len).to(device)
     number_net.load_state_dict(torch.load(checkpoint_num, map_location=device))
     number_net.train(False)
 
