@@ -4,8 +4,22 @@ import os
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from scipy import sparse
-from utils.utils import get_vocab, get_fitted_scaler
+#from utils.utils import get_vocab, get_fitted_scaler
 from tqdm import tqdm
+
+
+def get_vocab(df_train, df_test, df_valid, feature_name):
+    vocab = np.sort(np.unique(list(np.unique(df_train[feature_name])) +
+                              list(np.unique(df_test[feature_name])) +
+                              list(np.unique(df_valid[feature_name])))).reshape(1, -1)
+    return vocab
+
+
+def get_fitted_scaler(df_train, df_test, df_valid, feature_name):
+    mms = MinMaxScaler().fit(np.array((list(df_train[feature_name].values) +
+                                       list(df_test[feature_name].values) +
+                                       list(df_valid[feature_name].values))).reshape(-1, 1))
+    return mms
 
 
 class OrderDataset:
@@ -17,20 +31,20 @@ class OrderDataset:
         self.look_back = look_back
 
         # # final columns: id, categorical, amount, date, dt
-        # self.id = 'Ship.to'
-        # self.categorical = 'Material'
-        # self.amount = 'Amount_HL'
-        # self.date = 'Delivery_Date_week' # should be in the format YEAR-MONTH-DAY
-        # self.dt = 'dt'
-        # self.target = 'Amount_HL'
-
+        self.id = 'Ship.to'
+        self.categorical = 'Material'
+        self.amount = 'Amount_HL'
+        self.date = 'Delivery_Date_week' # should be in the format YEAR-MONTH-DAY
+        self.dt = 'dt'
+        self.target = 'Amount_HL'
+        """
         self.id = 'customer_id'
         self.categorical = 'mcc_code'
         self.amount = 'amount'
         self.date = 'tr_datetime'
         self.dt = 'dt'
         self.target = 'amount'
-
+        """
     def prepare_features(self, df, categorical_vocab, id_vocab):
         """
         Encode categorical feature with OrdinalEncoder.

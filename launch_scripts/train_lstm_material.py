@@ -5,15 +5,15 @@ from torch.nn.functional import cross_entropy
 from models.regression.lstm_material import ClassificationNet
 from data_preparation.data_reader_upd import OrderReader
 from data_preparation.dataset_preparation_upd import OrderDataset
-from sklearn.metrics import r2_score, mean_absolute_percentage_error, accuracy_score
+#from sklearn.metrics import r2_score, mean_absolute_percentage_error, accuracy_score
 import numpy as np
 from sacred import Experiment
 import os
-from utils.earlystopping import EarlyStopping
+#from utils.earlystopping import EarlyStopping
 import json
 from catalyst import metrics
 from tqdm import tqdm
-from utils.utils import own_r2_metric
+#from utils.utils import own_r2_metric
 torch.manual_seed(2)
 
 # ex = Experiment('LSTM_multidim_amount')

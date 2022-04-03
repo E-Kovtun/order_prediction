@@ -35,10 +35,13 @@ class ClassificationNet(nn.Module):
         self.id_embedding = nn.Embedding(num_embeddings=id_vocab_size, embedding_dim=id_embedding_dim)
 
         self.linear_concat1 = nn.Linear(2 * lstm_hidden_dim + id_embedding_dim, linear_concat1_dim)
+        self.bn1 = torch.nn.BatchNorm1d(linear_concat1_dim)
         self.linear_concat2 = nn.Linear(linear_concat1_dim, linear_concat2_dim)
+        self.bn2 = torch.nn.BatchNorm1d(linear_concat2_dim)
 
         # self.linear_mat_num = nn.Linear(linear_concat2_dim, 13)
         self.linear_material = nn.Linear(linear_concat2_dim, cat_vocab_size)
+        self.bn3 = torch.nn.BatchNorm1d(cat_vocab_size)
 
     def forward(self, cat_arr, mask_cat, num_arr, id_arr):
         x_cat_emb = self.cat_embedding(cat_arr)  # [batch_size, look_back, max_day_len0, cat_embedding_dim]
@@ -56,9 +59,12 @@ class ClassificationNet(nn.Module):
 
         x1 = self.linear_concat1(x_concat)
         x1 = self.relu(x1)
+        x1 = self.bn1(x1)
         x2 = self.linear_concat2(x1)
         x2 = self.relu(x2)
+        x2 = self.bn2(x2)
         # x_mat_num = self.linear_mat_num(x2)  # [batch_size, 13]
         x_material = self.linear_material(x2)  # [batch_size, cat_vocab_size]
+        x_material = self.bn3(x_material)      # This was used only because of LSTM is a part of C2AE
 
         return x_material
