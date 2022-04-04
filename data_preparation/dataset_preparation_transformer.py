@@ -62,6 +62,20 @@ class OrderDataset:
             all_differences.extend(interm_df.apply(lambda x: int((x - interm_df.iloc[0]).days)))
         df.insert(2, self.dt, all_differences)
 
+    def add_time_difference(self, df):
+        """
+        Add column 'dt' with time difference between orders.
+        """
+        all_differences = []
+        interm_df = df.groupby(self.id)[self.date].apply(lambda x: x.diff())
+        for ind in interm_df.index:
+            try:
+                corr_diff = np.nan_to_num(interm_df.iloc[ind].days).tolist()
+            except:
+                corr_diff = np.nan_to_num(interm_df.iloc[ind]).tolist()
+            all_differences.extend(corr_diff if type(corr_diff) == list else [corr_diff])
+        df.insert(2, self.dt, all_differences)
+
     def preprocess_dataframe(self):
         """
         Combine several steps of dataset preprocessing: encoding, scaling, grouping rows, adding 'dt' feature.
@@ -89,18 +103,26 @@ class OrderDataset:
         for prepared_df in prepared_datasets:
             prepared_df[self.amount] = amount_discretizer.transform(prepared_df[self.amount].values.reshape(-1, 1)).astype(np.int64)
             grouped_df = self.group_rows(prepared_df)
-            self.add_relative_time(grouped_df)
+            # self.add_relative_time(grouped_df)
+            self.add_time_difference(grouped_df)
             processed_datasets.append(grouped_df)
 
         max_cat_len = get_max_cat_len(*processed_datasets, self.categorical)
 
+        # all_dt = []
+        # for processed_df in processed_datasets:
+        #     ind_combinations = self.window_combinations(processed_df)
+        #     interm_dt = [processed_df.loc[pred_point, self.dt] - processed_df.loc[ref_i, self.dt]
+        #                  for ref_points, pred_point in ind_combinations
+        #                  for ref_i in ref_points]
+        #     all_dt.extend(interm_dt)
+        # unique_dt = np.unique(all_dt)
+        # dt_vocab_size = len(unique_dt)
+        # dt_encoder = OrdinalEncoder(categories=unique_dt.reshape(1, -1), dtype=np.int64)
+
         all_dt = []
         for processed_df in processed_datasets:
-            ind_combinations = self.window_combinations(processed_df)
-            interm_dt = [processed_df.loc[pred_point, self.dt] - processed_df.loc[ref_i, self.dt]
-                         for ref_points, pred_point in ind_combinations
-                         for ref_i in ref_points]
-            all_dt.extend(interm_dt)
+            all_dt.extend(processed_df[self.dt].values)
         unique_dt = np.unique(all_dt)
         dt_vocab_size = len(unique_dt)
         dt_encoder = OrdinalEncoder(categories=unique_dt.reshape(1, -1), dtype=np.int64)

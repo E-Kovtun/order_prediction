@@ -47,8 +47,12 @@ class OrderReader(Dataset):
                           value=self.cat_vocab_size)
 
         # look_back
-        dt_arr = torch.tensor([self.dt_encoder.fit_transform(np.array(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.dt] -
-                               self.df_final.loc[ref_i, self.order_dataset.dt]).reshape(-1, 1))[0][0]
+        # dt_arr = torch.tensor([self.dt_encoder.fit_transform(np.array(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.dt] -
+        #                        self.df_final.loc[ref_i, self.order_dataset.dt]).reshape(-1, 1))[0][0]
+        #                        for ref_i in self.ind_combinations[index][0]], dtype=torch.int64)
+
+        # look_back
+        dt_arr = torch.tensor([self.dt_encoder.fit_transform(np.array(self.df_final.loc[ref_i, self.order_dataset.dt]).reshape(-1, 1))[0][0]
                                for ref_i in self.ind_combinations[index][0]], dtype=torch.int64)
 
         # look_back x max_cat_len

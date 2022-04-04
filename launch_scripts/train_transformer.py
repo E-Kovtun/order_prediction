@@ -72,7 +72,7 @@ def train():
 
     early_stopping_patience = 15
 
-    model_name = 'Transformer10'
+    model_name = 'Transformer1_time_corrected'
     results_folder = f'../results/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pal.pt'
 
