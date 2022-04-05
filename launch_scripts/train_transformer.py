@@ -91,7 +91,7 @@ def train():
     dt_vocab_size = train_dataset.dt_vocab_size
     emb_dim = 128
 
-    net = TransformerNet(cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim).to(device)
+    net = TransformerNet(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim).to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=optimizer_lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=scheduler_factor, patience=scheduler_patience)
@@ -151,7 +151,7 @@ def train():
             break
 
 # #----------------------------------------------
-    net = TransformerNet(cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim).to(device)
+    net = TransformerNet(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim).to(device)
 
     net.load_state_dict(torch.load(checkpoint, map_location=device))
     net.train(False)

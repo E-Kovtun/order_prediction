@@ -12,7 +12,7 @@ class OrderReader(Dataset):
         self.phase = phase
 
         [train_final, test_final, valid_final], cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, \
-            max_cat_len, dt_encoder = self.order_dataset.preprocess_dataframe()
+            max_cat_len = self.order_dataset.preprocess_dataframe()
 
         if self.phase == 'train':
             self.df_final, self.ind_combinations = train_final, self.order_dataset.window_combinations(train_final)
@@ -25,7 +25,6 @@ class OrderReader(Dataset):
         self.id_vocab_size = id_vocab_size
         self.amount_vocab_size = amount_vocab_size
         self.dt_vocab_size = dt_vocab_size
-        self.dt_encoder = dt_encoder
 
         self.max_cat_len = max_cat_len
 
@@ -52,7 +51,7 @@ class OrderReader(Dataset):
         #                        for ref_i in self.ind_combinations[index][0]], dtype=torch.int64)
 
         # look_back
-        dt_arr = torch.tensor([self.dt_encoder.fit_transform(np.array(self.df_final.loc[ref_i, self.order_dataset.dt]).reshape(-1, 1))[0][0]
+        dt_arr = torch.tensor([self.df_final.loc[ref_i, self.order_dataset.dt]
                                for ref_i in self.ind_combinations[index][0]], dtype=torch.int64)
 
         # look_back x max_cat_len

@@ -4,7 +4,7 @@ import os
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from scipy import sparse
-from utils.utils import get_vocab, get_fitted_scaler, get_max_cat_len, get_fitted_discretizer, get_max_dt
+from utils.utils import get_vocab, get_fitted_scaler, get_max_cat_len, get_fitted_discretizer
 from tqdm import tqdm
 
 import warnings
@@ -55,12 +55,12 @@ class OrderDataset:
                                                                 self.amount: lambda x: list(x)}).reset_index()
         return df_grouped
 
-    def add_relative_time(self, df):
-        all_differences = []
-        for curr_id in df[self.id].unique():
-            interm_df = df.loc[df[self.id] == curr_id, self.date].reset_index(drop=True)
-            all_differences.extend(interm_df.apply(lambda x: int((x - interm_df.iloc[0]).days)))
-        df.insert(2, self.dt, all_differences)
+    # def add_relative_time(self, df):
+    #     all_differences = []
+    #     for curr_id in df[self.id].unique():
+    #         interm_df = df.loc[df[self.id] == curr_id, self.date].reset_index(drop=True)
+    #         all_differences.extend(interm_df.apply(lambda x: int((x - interm_df.iloc[0]).days)))
+    #     df.insert(2, self.dt, all_differences)
 
     def add_time_difference(self, df):
         """
@@ -120,14 +120,15 @@ class OrderDataset:
         # dt_vocab_size = len(unique_dt)
         # dt_encoder = OrdinalEncoder(categories=unique_dt.reshape(1, -1), dtype=np.int64)
 
-        all_dt = []
-        for processed_df in processed_datasets:
-            all_dt.extend(processed_df[self.dt].values)
-        unique_dt = np.unique(all_dt)
-        dt_vocab_size = len(unique_dt)
-        dt_encoder = OrdinalEncoder(categories=unique_dt.reshape(1, -1), dtype=np.int64)
+        dt_vocab = get_vocab(*processed_datasets, self.dt)
+        dt_vocab_size = dt_vocab.shape[1]
+        dt_encoder = OrdinalEncoder(categories=dt_vocab, dtype=np.int64)
+        final_datasets = []
+        for precessed_df in processed_datasets:
+            precessed_df[self.dt] = dt_encoder.fit_transform(precessed_df[self.dt].values.reshape(-1, 1))
+            final_datasets.append(precessed_df)
 
-        return processed_datasets, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, max_cat_len, dt_encoder
+        return final_datasets, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, max_cat_len
 
     def window_combinations(self, df):
         """
@@ -157,5 +158,5 @@ if __name__ == "__main__":
     look_back = 3
 
     order_dataset = OrderDataset(data_folder, train_file, test_file, valid_file, look_back)
-    [train_final, test_final, valid_final], cat_vocab_size, id_vocab_size, max_cat_len, dt_encoder = order_dataset.preprocess_dataframe()
+    [train_final, test_final, valid_final], cat_vocab_size, id_vocab_size, max_cat_len = order_dataset.preprocess_dataframe()
     print(train_final.loc[:10, :])

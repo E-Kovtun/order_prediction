@@ -5,9 +5,9 @@ import torch
 
 
 def get_vocab(df_train, df_test, df_valid, feature_name):
-    vocab = np.sort(np.unique(list(np.unique(df_train[feature_name])) +
-                              list(np.unique(df_test[feature_name])) +
-                              list(np.unique(df_valid[feature_name])))).reshape(1, -1)
+    vocab = np.unique(list(np.unique(df_train[feature_name])) +
+                      list(np.unique(df_test[feature_name])) +
+                      list(np.unique(df_valid[feature_name]))).reshape(1, -1)
     return vocab
 
 
@@ -37,8 +37,4 @@ def get_fitted_discretizer(df_train, df_test, df_valid, amount_feature):
     amount_discretizer.fit(all_amounts.reshape(-1, 1))
     return amount_discretizer
 
-
-def get_max_dt(df_train, df_test, df_valid, dt_fetaure):
-    all_dt = pd.concat([df_train[dt_fetaure], df_test[dt_fetaure], df_valid[dt_fetaure]]).values
-    return np.max(all_dt).astype(np.int64)
 
