@@ -175,12 +175,14 @@ def train():
     all_gt = torch.cat(gt_list, dim=0)
     test_mean_patk = {i: mean_patk(all_output, all_gt, k=i) for i in range(1, 5)}
     test_mean_ratk = {i: mean_ratk(all_output, all_gt, k=i) for i in range(1, 5)}
+    test_f1atk = {i: 2 * mean_patk(all_output, all_gt, k=i) * mean_ratk(all_output, all_gt, k=i) / (mean_patk(all_output, all_gt, k=i) + mean_ratk(all_output, all_gt, k=i))
+                  for i in range(1, 5)}
     test_mapk = {i: mapk(all_output, all_gt, k=i) for i in range(1, 5)}
 
-    print(f'Test Precision@k {test_mean_patk} || Test Recall@k {test_mean_ratk}|| MAP@k {test_mapk})')
+    print(f'Test Precision@k {test_mean_patk} || Test Recall@k {test_mean_ratk}|| Test F1@k {test_f1atk} || MAP@k {test_mapk})')
 
     with open(results_folder + f'{os.path.splitext(os.path.basename(checkpoint))[0]}.json', 'w', encoding='utf-8') as f:
-        json.dump({'test_patk': test_mean_patk, 'test_ratk': test_mean_ratk, 'test_mapk': test_mapk}, f)
+        json.dump({'test_patk': test_mean_patk, 'test_ratk': test_mean_ratk, 'test_f1atk': test_f1atk, 'test_mapk': test_mapk}, f)
 
 #-----------------------------------------------------------------------------
 
