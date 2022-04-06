@@ -12,7 +12,7 @@ class TransformerNet(nn.Module):
         self.amount_vocab_size = amount_vocab_size
         self.emb_dim = emb_dim
 
-        self.id_embedding = nn.Embedding(num_embeddings=id_vocab_size, embedding_dim=emb_dim)
+        self.id_embedding = nn.Embedding(num_embeddings=id_vocab_size, embedding_dim=3*emb_dim)
         self.cat_embedding = nn.Embedding(num_embeddings=cat_vocab_size, embedding_dim=emb_dim)
         self.amount_embedding = nn.Embedding(num_embeddings=amount_vocab_size+1, embedding_dim=emb_dim,
                                              padding_idx=amount_vocab_size)

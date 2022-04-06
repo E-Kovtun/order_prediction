@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy, one_hot
-from models.regression.transformer_shared import TransformerNet
+from models.regression.transformer1 import TransformerNet
 from data_preparation.data_reader_transformer import OrderReader
 import numpy as np
 import os
