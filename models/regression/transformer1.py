@@ -19,7 +19,7 @@ class TransformerNet(nn.Module):
         self.dt_embedding = nn.Embedding(num_embeddings=dt_vocab_size, embedding_dim=emb_dim)
         self.pos_embedding = nn.Embedding(num_embeddings=look_back, embedding_dim=emb_dim)
 
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=4, dim_feedforward=emb_dim,
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=3*emb_dim, nhead=4, dim_feedforward=3*emb_dim,
                                                         dropout=0.2, activation='relu', batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=2)
 
@@ -50,7 +50,8 @@ class TransformerNet(nn.Module):
                               device=torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu'))).unsqueeze(0).expand(dt_arr.shape[0], -1, -1)).unsqueeze(2).expand(-1, -1, self.cat_vocab_size, -1) *
                               x_onehot_cat.unsqueeze(3), dim=1)
 
-        x_encoder_input = torch.cat([x_id_emb, (x_cat_emb + x_dt_emb + x_amount_emb)], dim=1) # [batch_size, cat_vocab_size+1, emb_dim]
+        # x_encoder_input = torch.cat([x_id_emb, (x_cat_emb + x_dt_emb + x_amount_emb)], dim=1) # [batch_size, cat_vocab_size+1, emb_dim]
+        x_encoder_input = torch.cat([x_id_emb, torch.cat([x_cat_emb, x_dt_emb, x_amount_emb], dim=2)], dim=1)  # [batch_size, cat_vocab_size+1, emb_dim]
 
         x_encoder_output = self.transformer_encoder(x_encoder_input)[:, 1:, :] # [batch_size, cat_vocab_size, emb_dim]
         x_encoder_output = torch.mean(x_encoder_output, dim=2) # [batch_size, cat_vocab_size]
