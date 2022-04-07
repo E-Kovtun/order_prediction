@@ -12,12 +12,13 @@ from tqdm import tqdm
 torch.manual_seed(2)
 
 
-def pairwise_loss(output, multilabel_onehot_target):
+def pairwise_loss(output, multilabel_onehot_target, device):
     multilabel_onehot_target = multilabel_onehot_target[:, :-1]
-    pairwise_loss = torch.sum(torch.stack([torch.sum(torch.stack([torch.maximum(torch.tensor(0.), torch.tensor(1.) + output[b, i0] - output[b, i1])
-                  for i0 in torch.where(multilabel_onehot_target[b, :] == 0)[0].tolist()
-                  for i1 in torch.where(multilabel_onehot_target[b, :] == 1)[0].tolist()]))
-                  for b in range(output.shape[0])]))
+    pairwise_loss = torch.sum(torch.stack([torch.sum(torch.stack([torch.maximum(torch.tensor(0.).to(device),
+                                                                                torch.tensor(1.).to(device) + output[b, i0] - output[b, i1])
+                    for i0 in torch.where(multilabel_onehot_target[b, :] == 0)[0][torch.randperm(len(torch.where(multilabel_onehot_target[b, :] == 0)[0]))[:10]].tolist()
+                    for i1 in torch.where(multilabel_onehot_target[b, :] == 1)[0].tolist()]))
+                    for b in range(output.shape[0])]))
     return pairwise_loss
 
 
@@ -109,7 +110,7 @@ def train():
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
 
-            loss = pairwise_loss(output_material, batch_onehot_current_cat)
+            loss = pairwise_loss(output_material, batch_onehot_current_cat, device)
             epoch_train_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -129,7 +130,7 @@ def train():
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
 
-            loss = pairwise_loss(output_material, batch_onehot_current_cat)
+            loss = pairwise_loss(output_material, batch_onehot_current_cat, device)
             epoch_valid_loss += loss.item()
 
         print(f'Epoch {epoch}/{num_epochs} || Valid loss {epoch_valid_loss}')
