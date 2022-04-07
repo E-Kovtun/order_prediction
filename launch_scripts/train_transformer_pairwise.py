@@ -22,6 +22,16 @@ def pairwise_loss(output, multilabel_onehot_target, device):
     return pairwise_loss
 
 
+def weighted_pairwise_loss(output, multilabel_onehot_target, weights, device):
+    multilabel_onehot_target = multilabel_onehot_target[:, :-1]
+    pairwise_loss = torch.sum(torch.stack([torch.sum(torch.stack([(1 + weights[b, i1] / torch.sum(weights[b, :])) * torch.maximum(torch.tensor(0.).to(device),
+                                                                                torch.tensor(1.).to(device) + output[b, i0] - output[b, i1])
+                    for i0 in torch.where(multilabel_onehot_target[b, :] == 0)[0][torch.randperm(len(torch.where(multilabel_onehot_target[b, :] == 0)[0]))[:10]].tolist()
+                    for i1 in torch.where(multilabel_onehot_target[b, :] == 1)[0].tolist()]))
+                    for b in range(output.shape[0])]))
+    return pairwise_loss
+
+
 def mean_patk(output, multilabel_onehot_target, k):
     mean_patk_metric = np.mean([len(np.intersect1d(torch.topk(output[b, :], k=k, dim=0).indices.numpy(),
                                                    torch.where(multilabel_onehot_target[b, :] == 1)[0].numpy())) / k
@@ -64,9 +74,9 @@ def train():
 
     early_stopping_patience = 15
 
-    model_name = 'Transformer1'
+    model_name = 'Transformer_weighted'
     results_folder = f'../results/{model_name}/'
-    checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pairwise.pt'
+    checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pairwise_weighted.pt'
 
     if torch.cuda.is_available():
         device = torch.device('cuda:0')
@@ -110,7 +120,13 @@ def train():
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
 
-            loss = pairwise_loss(output_material, batch_onehot_current_cat, device)
+            x_onehot_cat = one_hot(batch_cat_arr, num_classes=cat_vocab_size + 1)
+            batch_mask_cat = torch.tensor(~(batch_cat_arr == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
+            x_onehot_cat = x_onehot_cat * batch_mask_cat.unsqueeze(3)
+            x_onehot_cat_sum = torch.sum(x_onehot_cat, dim=2)
+            weights = torch.sum(x_onehot_cat_sum, dim=1)[:, :-1]
+
+            loss = weighted_pairwise_loss(output_material, batch_onehot_current_cat, weights, device)
             epoch_train_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -130,7 +146,13 @@ def train():
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
 
-            loss = pairwise_loss(output_material, batch_onehot_current_cat, device)
+            x_onehot_cat = one_hot(batch_cat_arr, num_classes=cat_vocab_size + 1)
+            batch_mask_cat = torch.tensor(~(batch_cat_arr == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
+            x_onehot_cat = x_onehot_cat * batch_mask_cat.unsqueeze(3)
+            x_onehot_cat_sum = torch.sum(x_onehot_cat, dim=2)
+            weights = torch.sum(x_onehot_cat_sum, dim=1)[:, :-1]
+
+            loss = weighted_pairwise_loss(output_material, batch_onehot_current_cat, weights, device)
             epoch_valid_loss += loss.item()
 
         print(f'Epoch {epoch}/{num_epochs} || Valid loss {epoch_valid_loss}')
