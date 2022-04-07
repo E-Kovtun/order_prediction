@@ -66,9 +66,8 @@ class TransformerNet(nn.Module):
 
         if current_cat is not None: # [batch_size, max_cat_len]
             x_current_mask = torch.tensor(~(current_cat == self.cat_vocab_size), dtype=torch.int64).unsqueeze(2)  # [batch_size, max_cat_len, 1]
-            x_current_emb = self.cat_embedding(current_cat) # [batch_size, max_cat_len, emb_dim]
-            x_current_proj = torch.sum(self.linear_curr(x_current_emb) * x_current_mask, dim=1) # [batch_size, cat_vocab_size]
-            return x_history_proj, x_current_proj
+            x_current_onehot = torch.sum(one_hot(current_cat, num_classes=self.cat_vocab_size + 1) * x_current_mask, dim=1)[:, :-1] # [batch_size, cat_vocab_size]
+            return x_history_proj, x_current_onehot
         else:
             return x_history_proj
 

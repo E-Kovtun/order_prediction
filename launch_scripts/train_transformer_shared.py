@@ -110,12 +110,12 @@ def train():
             batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
                                                          num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
 
-            print('init loss', multilabel_crossentropy_loss(output_material, batch_onehot_current_cat))
-            print('alpha init loss', alpha * multilabel_crossentropy_loss(output_material, batch_onehot_current_cat))
-            print('cos loss', torch.mean(nn.CosineSimilarity(dim=1)(output_material, output_label), dim=0))
+            # print('init loss', multilabel_crossentropy_loss(output_material, batch_onehot_current_cat))
+            # print('alpha init loss', alpha * multilabel_crossentropy_loss(output_material, batch_onehot_current_cat))
+            # print('cos loss', torch.mean(nn.CosineSimilarity(dim=1)(sigmoid_output_material, output_label), dim=0))
 
             loss = alpha * multilabel_crossentropy_loss(output_material, batch_onehot_current_cat) - \
-                   torch.mean(nn.CosineSimilarity(dim=1)(output_material, output_label), dim=0)
+                   torch.mean(nn.CosineSimilarity(dim=1)(nn.Sigmoid()(output_material), output_label), dim=0)
             epoch_train_loss += loss.item()
             loss.backward()
             optimizer.step()
