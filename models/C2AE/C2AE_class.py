@@ -109,6 +109,18 @@ class C2AE(torch.nn.Module):
             # If evaluating just send through encoder and decoder.
             return self.predict(x)
 
+
+        # else:
+        #     x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
+        #     # If evaluating just send through encoder and decoder.
+        #     fx_x = self.fx(x)
+        #     fe_y = self.fe(current_minus1_cat.float())
+        #     # Calculate decoded latent representation.
+        #     fd_z = self.fd(0.7*fe_y+fx_x)
+        #     return fd_z
+
+
+
     def _predict(self, y):
         """This method predicts with the y encoded latent space.
         """

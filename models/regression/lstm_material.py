@@ -34,7 +34,7 @@ class ClassificationNet(nn.Module):
                                           padding_idx=cat_vocab_size)
         self.id_embedding = nn.Embedding(num_embeddings=id_vocab_size, embedding_dim=id_embedding_dim)
 
-        self.linear_concat1 = nn.Linear(2 * lstm_hidden_dim + id_embedding_dim, linear_concat1_dim)
+        self.linear_concat1 = nn.Linear(2 * lstm_hidden_dim + id_embedding_dim, linear_concat1_dim, bias=False)
         self.bn1 = torch.nn.BatchNorm1d(linear_concat1_dim)
         self.linear_concat2 = nn.Linear(linear_concat1_dim, linear_concat2_dim)
         self.bn2 = torch.nn.BatchNorm1d(linear_concat2_dim)
