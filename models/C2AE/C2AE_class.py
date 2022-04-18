@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-
+import pandas as pd
 
 class Fd(torch.nn.Module):
     """
@@ -26,11 +26,11 @@ class Fx(torch.nn.Module):
     """
     def __init__(self, in_dim, H1, H2, out_dim):
         super(Fx, self).__init__()
-        self.fc1 = torch.nn.Linear(in_dim, H1)
+        self.fc1 = torch.nn.Linear(in_dim, H1, bias=False)
         self.bn1 = torch.nn.BatchNorm1d(H1)
-        self.fc2 = torch.nn.Linear(H1, H2)
+        self.fc2 = torch.nn.Linear(H1, H2, bias=False)
         self.bn2 = torch.nn.BatchNorm1d(H2)
-        self.fc3 = torch.nn.Linear(H2, out_dim)
+        self.fc3 = torch.nn.Linear(H2, out_dim, bias=False)
         self.bn3 = torch.nn.BatchNorm1d(out_dim)
 
     def forward(self, x):
@@ -49,9 +49,9 @@ class Fe(torch.nn.Module):
     """
     def __init__(self, in_dim, H, out_dim):
         super(Fe, self).__init__()
-        self.fc1 = torch.nn.Linear(in_dim, H)
+        self.fc1 = torch.nn.Linear(in_dim, H, bias=False)
         self.bn1 = torch.nn.BatchNorm1d(H)
-        self.fc2 = torch.nn.Linear(H, out_dim)
+        self.fc2 = torch.nn.Linear(H, out_dim, bias=False)
         self.bn2 = torch.nn.BatchNorm1d(out_dim)
 
     def forward(self, x):
@@ -100,26 +100,27 @@ class C2AE(torch.nn.Module):
             x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
             # Calculate feature, and label latent representations.
             fx_x = self.fx(x)
-            fe_y = self.fe(batch_onehot_current_cat.float()) #current_minus1_cat.float())
+            fe_y = self.fe(batch_onehot_current_cat.float())
+            #fe_y_t = self.fe(current_minus1_cat.float())#current_minus1_cat.float())
             # Calculate decoded latent representation.
             fd_z = self.fd(fe_y)
-            return fx_x, fe_y, fd_z
+            return fx_x, fe_y, fd_z #, fe_y_t
         else:
             x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
             # If evaluating just send through encoder and decoder.
             return self.predict(x)
-
-
         # else:
         #     x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
         #     # If evaluating just send through encoder and decoder.
         #     fx_x = self.fx(x)
         #     fe_y = self.fe(current_minus1_cat.float())
         #     # Calculate decoded latent representation.
-        #     fd_z = self.fd(0.7*fe_y+fx_x)
+        #     fd_z = self.fd(0.7*fe_y+0.3*fx_x)
         #     return fd_z
-
-
+        # else:
+        #     x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
+        #     # If evaluating just send through encoder and decoder.
+        #     return self.predict(x)
 
     def _predict(self, y):
         """This method predicts with the y encoded latent space.
@@ -177,10 +178,11 @@ class C2AE(torch.nn.Module):
         # latent_loss = torch.mean((fx_x - fe_y)**2)
         return latent_loss
 
-    def losses(self, fx_x, fe_y, fd_z, y):
+    def losses(self, fx_x, fe_y, fd_z, y, fe_y_t):
         """This method calculates the main loss functions required
         when composing the loss function.
         """
         l_loss = self.latent_loss(fx_x, fe_y)
+        #l_loss_t = self.latent_loss(fx_x, fe_y_t)
         c_loss = self.corr_loss(fd_z, y)
-        return l_loss, c_loss
+        return l_loss, c_loss #, l_loss_t

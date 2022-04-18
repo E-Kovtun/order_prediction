@@ -27,7 +27,7 @@ class ClassificationNet(nn.Module):
 
         self.lstm_encoding_cat = LSTMEncoding(cat_embedding_dim, lstm_hidden_dim)
 
-        self.linear_num_feat = nn.Linear(2, linear_num_feat_dim)
+        self.linear_num_feat = nn.Linear(2, linear_num_feat_dim, bias=False)
         self.lstm_encoding_num = LSTMEncoding(linear_num_feat_dim, lstm_hidden_dim)
 
         self.cat_embedding = nn.Embedding(num_embeddings=cat_vocab_size + 1, embedding_dim=cat_embedding_dim,
@@ -36,11 +36,11 @@ class ClassificationNet(nn.Module):
 
         self.linear_concat1 = nn.Linear(2 * lstm_hidden_dim + id_embedding_dim, linear_concat1_dim, bias=False)
         self.bn1 = torch.nn.BatchNorm1d(linear_concat1_dim)
-        self.linear_concat2 = nn.Linear(linear_concat1_dim, linear_concat2_dim)
+        self.linear_concat2 = nn.Linear(linear_concat1_dim, linear_concat2_dim, bias=False)
         self.bn2 = torch.nn.BatchNorm1d(linear_concat2_dim)
 
         # self.linear_mat_num = nn.Linear(linear_concat2_dim, 13)
-        self.linear_material = nn.Linear(linear_concat2_dim, cat_vocab_size)
+        self.linear_material = nn.Linear(linear_concat2_dim, cat_vocab_size, bias=False)
         self.bn3 = torch.nn.BatchNorm1d(cat_vocab_size)
 
     def forward(self, cat_arr, mask_cat, num_arr, id_arr):
