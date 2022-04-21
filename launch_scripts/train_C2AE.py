@@ -71,12 +71,11 @@ def train():
     data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
     train_file = "df_beer_train_nn.csv"
     test_file = "df_beer_test.csv"
-    valid_file = "df_beer_test.csv"
-
+    valid_file = "df_beer_valid_nn.csv"
 
     look_back = 3
 
-    num_epochs = 200
+    num_epochs = 150
     batch_size = 32
     dataloader_num_workers = 0
 
@@ -87,7 +86,7 @@ def train():
 
     early_stopping_patience = 200
     model_name = 'LSTM_WITH_C2AE'
-    results_folder = f'../transformer_plus_c2ae+bn_gpu_100xhidden_10xlatent/{model_name}/'
+    results_folder = f'../firstexp_without_batchnorm_long_ver2+bn_gpu_100xhidden_10xlatent/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_c2ae.pt'
 
     if torch.cuda.is_available():
@@ -120,7 +119,7 @@ def train():
                             id_embedding_dim, linear_concat1_dim, linear_concat2_dim)
 
     classifier_net.linear_material = nn.Linear(linear_concat2_dim, 512)
-    classifier_net.bn3 = nn.BatchNorm1d(512)
+    #classifier_net.bn3 = nn.BatchNorm1d(512)
     num_labels = cat_vocab_size + 1     # 61 + 1
 
     latent_dim = 512
@@ -131,18 +130,19 @@ def train():
     fx = Fx(512, fx_hidden_dim, fx_hidden_dim, latent_dim).to(device)
     fe = Fe(num_labels, fe_hidden_dim, latent_dim).to(device)
     fd = Fd(latent_dim, fd_hidden_dim, num_labels, fin_act=torch.sigmoid).to(device)
-    c2ae = C2AE(classifier_net.to(device), fx, fe, fd, beta=0.5, alpha=7, emb_lambda=0.01, latent_dim=latent_dim,
+    c2ae = C2AE(classifier_net.to(device), fx, fe, fd, beta=0.5, alpha=10, emb_lambda=0.01, latent_dim=latent_dim,
                 device=device).to(device)
 
     #c2ae.load_state_dict(torch.load(checkpoint, map_location=device))
     #c2ae.train()
 
     optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr)
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=scheduler_factor,
-                                                         patience=scheduler_patience)
+                                                           patience=scheduler_patience)
     #scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
     early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True, path=checkpoint)
-    val_every_500 = False
+    #val_every_500 = False
     for epoch in range(1, num_epochs+1):
         c2ae.train()
         epoch_train_loss = 0
@@ -205,17 +205,17 @@ def train():
              batch_num_arr, batch_id_arr, batch_target] = batch_arrays #current_minus1_cat] = batch_arrays
 
             optimizer.zero_grad()
-            fx_x, fe_y, fd_z, fe_y_t = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
+            fx_x, fe_y, fd_z = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
                                     batch_onehot_current_cat) #, current_minus1_cat=current_minus1_cat)
             # Calc losses.
             l_loss, c_loss = c2ae.losses(fx_x, fe_y, fd_z, batch_onehot_current_cat)
-            #gamma = 0.3
+            #gamma = 0.9
             loss = c2ae.beta * l_loss + c2ae.alpha * c_loss #+ gamma * l_loss_t
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item()
-            if val_every_500 and not ((batch_ind + 1) % 1000):
-                break
+            # if val_every_500 and not ((batch_ind + 1) % 1000):
+            #     break
 
         print(f'Epoch {epoch}/{num_epochs} || Train loss {epoch_train_loss}')
 
@@ -255,21 +255,21 @@ def train():
 
         #val_mean_patk = {i: mean_patk(all_output, all_gt, k=i) for i in range(1, 2)}
         #val_mean_ratk = {i: mean_ratk(all_output, all_gt, k=i) for i in range(1, 2)}
-        if (1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-                          np.mean(list(val_mean_ratk.values()))) /
-                       (np.mean(list(val_mean_ratk.values())) +
-                        np.mean(list(val_mean_patk.values()))))) < 0.29:
-
-            optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr*0.001)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.999,
-                                                                   patience=scheduler_patience)
-            val_every_500 = True
-            print("Fine tuning begin!")
-        else:
-            scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-                              np.mean(list(val_mean_ratk.values()))) /
-                           (np.mean(list(val_mean_ratk.values())) +
-                            np.mean(list(val_mean_patk.values())))))
+        # if (1 - 2 * ((np.mean(list(val_mean_patk.values())) *
+        #                   np.mean(list(val_mean_ratk.values()))) /
+        #                (np.mean(list(val_mean_ratk.values())) +
+        #                 np.mean(list(val_mean_patk.values()))))) < 0.29:
+        #
+        #     optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr*0.001)
+        #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.999,
+        #                                                            patience=scheduler_patience)
+        #     val_every_500 = True
+        #     print("Fine tuning begin!")
+        # else:
+        #     scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
+        #                       np.mean(list(val_mean_ratk.values()))) /
+        #                    (np.mean(list(val_mean_ratk.values())) +
+        #                     np.mean(list(val_mean_patk.values())))))
         #scheduler.step()
         scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
                                np.mean(list(val_mean_ratk.values()))) /
@@ -307,10 +307,10 @@ def train():
         #                                     batch_mask_cat.shape[1] + 1,
         #                                     batch_mask_cat.shape[2])).to(device)
         # batch_mask_cat_minus1[:, :-1] = batch_mask_cat
-        #
-        # output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
 
-        output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)# current_minus1_cat=current_minus1_cat)
+        #output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
+
+        output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr) #current_minus1_cat=current_minus1_cat)
         output_list.append(output.detach().cpu())
         gt_list.append(batch_onehot_current_cat.detach().cpu())
 
