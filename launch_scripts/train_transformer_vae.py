@@ -12,6 +12,15 @@ from tqdm import tqdm
 torch.manual_seed(2)
 
 
+def multilabel_crossentropy_loss(output, multilabel_onehot_target):
+    # output (logits) - batch_size x cat_vocab_size
+    # multilabel_onehot_target - batch_size x cat_vocab_size + 1
+    multi_loss = torch.sum(torch.stack([torch.sum(torch.stack([cross_entropy(output[b, :].reshape(1, -1), label.reshape(-1))
+                                         for label in torch.where(multilabel_onehot_target[b, :] == 1)[0]], dim=0))
+                                         for b in range(output.shape[0])]), dim=0)
+    return multi_loss
+
+
 def mean_patk(output, multilabel_onehot_target, k):
     mean_patk_metric = np.mean([len(np.intersect1d(torch.topk(output[b, :], k=k, dim=0).indices.numpy(),
                                                    torch.where(multilabel_onehot_target[b, :] == 1)[0].numpy())) / k
@@ -120,14 +129,23 @@ def train():
         for batch_ind, batch_arrays in enumerate(valid_dataloader):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-            (x_history, x_current_onehot), \
-            [history_from_history, labels_from_history, labels_from_labels, history_from_labels], \
-            (mu_history, logvar_history), \
-            (mu_curr_labels, logvar_curr_labels) = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, batch_current_cat)
-            loss = loss_full(x_history, x_current_onehot,
-                             history_from_history, labels_from_history, labels_from_labels, history_from_labels,
-                             mu_history, logvar_history,
-                             mu_curr_labels, logvar_curr_labels)
+            # (x_history, x_current_onehot), \
+            # [history_from_history, labels_from_history, labels_from_labels, history_from_labels], \
+            # (mu_history, logvar_history), \
+            # (mu_curr_labels, logvar_curr_labels) = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, batch_current_cat)
+            # loss = loss_full(x_history, x_current_onehot,
+            #                  history_from_history, labels_from_history, labels_from_labels, history_from_labels,
+            #                  mu_history, logvar_history,
+            #                  mu_curr_labels, logvar_curr_labels)
+            # epoch_valid_loss += loss.item()
+
+            labels_from_history = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
+                                                  dtype=torch.int64).unsqueeze(2).to(device)
+            batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
+                                                         num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
+
+            loss = multilabel_crossentropy_loss(labels_from_history, batch_onehot_current_cat)
             epoch_valid_loss += loss.item()
 
         print(f'Epoch {epoch}/{num_epochs} || Valid loss {epoch_valid_loss}')
