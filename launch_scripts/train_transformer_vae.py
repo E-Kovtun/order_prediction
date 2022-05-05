@@ -97,7 +97,7 @@ def train():
 
     beta = 1
     gamma = 1
-    delta = 1
+    delta = 10
     loss_full = TransformerVAELoss(beta, gamma, delta)
 
     for epoch in range(1, num_epochs+1):
@@ -113,10 +113,17 @@ def train():
             (mu_history, logvar_history), \
             (mu_curr_labels, logvar_curr_labels) = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, batch_current_cat)
 
+            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
+                                                  dtype=torch.int64).unsqueeze(2).to(device)
+            batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
+                                                         num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
+
             loss = loss_full(x_history, x_current_onehot,
                              history_from_history, labels_from_history, labels_from_labels, history_from_labels,
                              mu_history, logvar_history,
-                             mu_curr_labels, logvar_curr_labels)
+                             mu_curr_labels, logvar_curr_labels) + \
+                   multilabel_crossentropy_loss(labels_from_history, batch_onehot_current_cat)
+
             epoch_train_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -158,7 +165,7 @@ def train():
             break
 
 # #----------------------------------------------
-    net = net = TransformerVAE(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim, latent_dim, device).to(device)
+    net = TransformerVAE(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, emb_dim, latent_dim, device).to(device)
 
     net.load_state_dict(torch.load(checkpoint, map_location=device))
     net.train(False)
