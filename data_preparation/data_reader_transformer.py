@@ -4,6 +4,8 @@ import numpy as np
 from tqdm import tqdm
 import torch
 from torch.nn.functional import pad
+from torch.nn.utils.rnn import pad_sequence
+from torch.nn.functional import one_hot
 
 class OrderReader(Dataset):
     def __init__(self, data_folder, train_file, test_file, valid_file, look_back, phase):
@@ -25,8 +27,18 @@ class OrderReader(Dataset):
         self.id_vocab_size = id_vocab_size
         self.amount_vocab_size = amount_vocab_size
         self.dt_vocab_size = dt_vocab_size
+        self.cat_padding_value = cat_vocab_size
 
         self.max_cat_len = max_cat_len
+
+        current_minus1_cat = pad_sequence([torch.tensor(
+            self.df_final.loc[pred_point - 1, self.order_dataset.categorical], dtype=torch.int64).unsqueeze(1)
+                                           for ref_points, pred_point in self.ind_combinations],
+                                          padding_value=self.cat_padding_value).squeeze().transpose(1, 0)
+
+        mask_current_cat = torch.tensor(~(current_minus1_cat == self.cat_padding_value), dtype=torch.int64).unsqueeze(2)
+        self.current_minus1_cat = torch.sum(
+            one_hot(current_minus1_cat, num_classes=self.cat_vocab_size + 1) * mask_current_cat, dim=1)
 
     def __len__(self):
         return len(self.ind_combinations)
@@ -64,7 +76,7 @@ class OrderReader(Dataset):
         id_arr = torch.tensor(self.df_final.loc[self.ind_combinations[index][0][0], self.order_dataset.id],
                               dtype=torch.int64)
 
-        return cat_arr, current_cat, dt_arr, amount_arr, id_arr
+        return cat_arr, current_cat, dt_arr, amount_arr, id_arr, self.current_minus1_cat[index, :]
 
         # number_arr = (torch.tensor(len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]), dtype=torch.int64) - 1)
         #

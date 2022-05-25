@@ -87,16 +87,20 @@ class OrderReader(Dataset):
         target = pad_sequence([torch.tensor(self.df_final.loc[pred_point, self.order_dataset.amount], dtype=torch.float32).unsqueeze(1)
                  for ref_points, pred_point in self.ind_combinations], padding_value=self.amount_padding_value).squeeze().transpose(1, 0)
 
-        return cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target # current_minus1_cat
+        return cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target
 
     def __len__(self):
         return len(self.ind_combinations)
 
     def __getitem__(self, index):
+
+        # For NumberNet:
+        # number_arr = (torch.tensor(
+        #     len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]),
+        #     dtype=torch.int64) - 1)
         return [self.cat_arr[index, :, :], self.mask_cat[index, :, :],
                 self.current_cat[index, :], self.mask_current_cat[index, :, :], self.onehot_current_cat[index, :],
-                self.num_arr[index, :, :], self.id_arr[index, :], self.target[index, :]]
-                #self.current_minus1_cat[index, :]]
+                self.num_arr[index, :, :], self.id_arr[index, :], self.target[index, :]] #, self.current_minus1_cat[index, :]]
 
 
 

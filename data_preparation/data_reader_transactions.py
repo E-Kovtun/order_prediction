@@ -14,7 +14,7 @@ class OrderReader(Dataset):
         self.order_dataset = OrderDataset(data_folder, train_file, test_file, valid_file, look_back)
         self.phase = phase
 
-        [train_final, test_final, valid_final], mms, cat_vocab_size, id_vocab_size = \
+        [train_final, test_final, valid_final], mms, cat_vocab_size, id_vocab_size, max_cat_len = \
             self.order_dataset.preprocess_dataframe()
         self.mms = mms
         if self.phase == 'train':
@@ -29,7 +29,7 @@ class OrderReader(Dataset):
         self.cat_padding_value = cat_vocab_size
         self.amount_padding_value = 100
 
-        self.max_cat_len = get_max_cat_len(self.df_final, self.order_dataset.categorical)
+        self.max_cat_len = max_cat_len
 
     def __len__(self):
         return len(self.ind_combinations)
@@ -68,14 +68,14 @@ class OrderReader(Dataset):
                               dtype=torch.int64)
 
         # max_cat_len
-        target_amount = pad(input=torch.tensor(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.amount], dtype=torch.float32),
-                            pad=(0, self.max_cat_len - len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.amount])),
-                            mode='constant',
-                            value=self.amount_padding_value)
+        # target_amount = pad(input=torch.tensor(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.amount], dtype=torch.float32),
+        #                     pad=(0, self.max_cat_len - len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.amount])),
+        #                     mode='constant',
+        #                     value=self.amount_padding_value)
 
         #
         target_cat = (torch.tensor(len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]), dtype=torch.int64) - 1)
 
-        return [cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target_amount, target_cat]
+        return [cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target_cat]
 
 

@@ -6,7 +6,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from scipy import sparse
 #from utils.utils import get_vocab, get_fitted_scaler
 from tqdm import tqdm
-
+from utils.utils import get_max_cat_len
 
 def get_vocab(df_train, df_test, df_valid, feature_name):
     vocab = np.sort(np.unique(list(np.unique(df_train[feature_name])) +
@@ -31,20 +31,28 @@ class OrderDataset:
         self.look_back = look_back
 
         # # final columns: id, categorical, amount, date, dt
+        # self.id = 'shop_id'
+        # self.categorical = 'item'
+        # self.amount = 'item_cnt_day'
+        # self.date = 'date' # should be in the format YEAR-MONTH-DAY
+        # self.dt = 'dt'
+        # self.target = 'item_cnt_day'
+
+        # # final columns: id, categorical, amount, date, dt
         self.id = 'Ship.to'
         self.categorical = 'Material'
         self.amount = 'Amount_HL'
-        self.date = 'Delivery_Date_week' # should be in the format YEAR-MONTH-DAY
+        self.date = 'Delivery_Date_week'  # should be in the format YEAR-MONTH-DAY
         self.dt = 'dt'
         self.target = 'Amount_HL'
-        """
-        self.id = 'customer_id'
-        self.categorical = 'mcc_code'
-        self.amount = 'amount'
-        self.date = 'tr_datetime'
-        self.dt = 'dt'
-        self.target = 'amount'
-        """
+
+        # self.id = 'customer_id'
+        # self.categorical = 'mcc_code'
+        # self.amount = 'amount'
+        # self.date = 'tr_datetime'
+        # self.dt = 'dt'
+        # self.target = 'amount'
+
     def prepare_features(self, df, categorical_vocab, id_vocab):
         """
         Encode categorical feature with OrdinalEncoder.
@@ -132,10 +140,14 @@ class OrderDataset:
         for processed_df in processed_datasets:
             processed_df[self.dt] = mms_dt.transform(processed_df[self.dt].values.reshape(-1, 1))
 
+        max_cat_len = get_max_cat_len(*processed_datasets, self.categorical)
+
         if self.target == self.amount:
-            return processed_datasets, mms_amount, cat_vocab_size, id_vocab_size
+            return processed_datasets, mms_amount, cat_vocab_size, id_vocab_size, max_cat_len
         if self.target == self.dt:
-            return processed_datasets, mms_dt, cat_vocab_size, id_vocab_size
+            return processed_datasets, mms_dt, cat_vocab_size, id_vocab_size, max_cat_len
+
+
 
     def window_combinations(self, df):
         """

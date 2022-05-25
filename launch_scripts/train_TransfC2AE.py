@@ -57,7 +57,7 @@ def train():
 
     look_back = 3
 
-    num_epochs = 200
+    num_epochs = 100
     batch_size = 32
     dataloader_num_workers = 0
 
@@ -70,7 +70,7 @@ def train():
     early_stopping_patience = 15
 
     model_name = 'Transformer_C2AE'
-    results_folder = f'../transformer_ver1_plus_c2ae+bn_gpu_100xhidden_10xlatent/{model_name}/'
+    results_folder = f'../transformer_ver1_plus_c2ae_5hypo_g0_2+bn_gpu_100xhidden_10xlatent/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_pal.pt'
 
     if torch.cuda.is_available():
@@ -100,7 +100,7 @@ def train():
     fx = Fx(61, fx_hidden_dim, fx_hidden_dim, latent_dim).to(device)
     fe = Fe(num_labels, fe_hidden_dim, latent_dim).to(device)
     fd = Fd(latent_dim, fd_hidden_dim, num_labels, fin_act=torch.sigmoid).to(device)
-    c2ae = C2AE(net.to(device), fx, fe, fd, beta=0.5, alpha=7, emb_lambda=0.01, latent_dim=latent_dim,
+    c2ae = C2AE(net.to(device), fx, fe, fd, beta=0.5, alpha=10, emb_lambda=0.01, latent_dim=latent_dim,
                 device=device).to(device)
 
     optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr)
@@ -112,14 +112,14 @@ def train():
 
     os.makedirs(results_folder+'checkpoints/', exist_ok=True)
     early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True, path=checkpoint)
-    val_every_500 = False
+    #val_every_500 = False
     for epoch in range(1, num_epochs+1):
         c2ae.train()
         epoch_train_loss = 0
         print('Training...')
         for batch_ind, batch_arrays in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
-            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
+            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr, current_minus1_cat] = batch_arrays
             optimizer.zero_grad()
             # output_material, output_label = c2ae(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, batch_current_cat)
             #
@@ -143,16 +143,17 @@ def train():
             # fx_x, fe_y, fd_z = c2ae(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr, batch_current_cat,
             #                         batch_onehot_current_cat)  # , current_minus1_cat=current_minus1_cat)
             # Calc losses.
-            fx_x, fe_y, fd_z = c2ae(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr,
-                                    batch_onehot_current_cat=batch_onehot_current_cat)
-            l_loss, c_loss = c2ae.losses(fx_x, fe_y, fd_z, batch_onehot_current_cat)
-            # gamma = 0.3
-            loss = c2ae.beta * l_loss + c2ae.alpha * c_loss  # + gamma * l_loss_t
+
+            fx_x, fe_y, fd_z, fe_y_t = c2ae(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr,
+                                            batch_onehot_current_cat=batch_onehot_current_cat, current_minus1_cat=current_minus1_cat)
+            l_loss, c_loss, l_loss_t = c2ae.losses(fx_x, fe_y, fd_z, batch_onehot_current_cat, fe_y_t)
+            gamma = 0.2
+            loss = c2ae.beta * l_loss + c2ae.alpha * c_loss + gamma * l_loss_t
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item()
-            if val_every_500 and not ((batch_ind + 1) % 1000):
-                break
+            # if val_every_500 and not ((batch_ind + 1) % 1000):
+            #     break
 
         print(f'Epoch {epoch}/{num_epochs} || Train loss {epoch_train_loss}')
 
@@ -163,7 +164,7 @@ def train():
         gt_list = []
         for batch_ind, batch_arrays in enumerate(valid_dataloader):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
-            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
+            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr, current_minus1_cat] = batch_arrays
             output = c2ae(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)  # current_minus1_cat=current_minus1_cat)
             # output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
             batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
@@ -189,21 +190,25 @@ def train():
 
         # val_mean_patk = {i: mean_patk(all_output, all_gt, k=i) for i in range(1, 2)}
         # val_mean_ratk = {i: mean_ratk(all_output, all_gt, k=i) for i in range(1, 2)}
-        if (1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-                      np.mean(list(val_mean_ratk.values()))) /
-                     (np.mean(list(val_mean_ratk.values())) +
-                      np.mean(list(val_mean_patk.values()))))) < 0.29:
-
-            optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr * 0.001)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.999,
-                                                                   patience=scheduler_patience)
-            val_every_500 = True
-            print("Fine tuning begin!")
-        else:
-            scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-                                     np.mean(list(val_mean_ratk.values()))) /
-                                    (np.mean(list(val_mean_ratk.values())) +
-                                     np.mean(list(val_mean_patk.values())))))
+        # if (1 - 2 * ((np.mean(list(val_mean_patk.values())) *
+        #               np.mean(list(val_mean_ratk.values()))) /
+        #              (np.mean(list(val_mean_ratk.values())) +
+        #               np.mean(list(val_mean_patk.values()))))) < 0.29:
+        #
+        #     optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr * 0.001)
+        #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.999,
+        #                                                            patience=scheduler_patience)
+        #     val_every_500 = True
+        #     print("Fine tuning begin!")
+        # else:
+        #     scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
+        #                              np.mean(list(val_mean_ratk.values()))) /
+        #                             (np.mean(list(val_mean_ratk.values())) +
+        #                              np.mean(list(val_mean_patk.values())))))
+        scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
+                                 np.mean(list(val_mean_ratk.values()))) /
+                                (np.mean(list(val_mean_ratk.values())) +
+                                 np.mean(list(val_mean_patk.values())))))
         early_stopping(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
                                  np.mean(list(val_mean_ratk.values()))) /
                                 (np.mean(list(val_mean_ratk.values())) +
@@ -223,7 +228,7 @@ def train():
     gt_list = []
     for batch_ind, batch_arrays in enumerate(test_dataloader):
         batch_arrays = [arr.to(device) for arr in batch_arrays]
-        [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
+        [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr, current_minus1_cat] = batch_arrays
         batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size),
                                               dtype=torch.int64).unsqueeze(2).to(device)
         batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,

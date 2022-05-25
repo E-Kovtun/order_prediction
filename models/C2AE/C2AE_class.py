@@ -9,13 +9,13 @@ class Fd(torch.nn.Module):
     def __init__(self, in_dim, H, out_dim, fin_act=None):
         super(Fd, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H)
-        #self.bn = torch.nn.BatchNorm1d(H)
+        self.bn = torch.nn.BatchNorm1d(H)
         self.fc2 = torch.nn.Linear(H, out_dim)
         self.fin_act = fin_act
 
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
-        #x = self.bn(x)
+        x = self.bn(x)
         x = self.fc2(x)
         return self.fin_act(x) if self.fin_act else x
 
@@ -27,19 +27,19 @@ class Fx(torch.nn.Module):
     def __init__(self, in_dim, H1, H2, out_dim):
         super(Fx, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H1)
-        #self.bn1 = torch.nn.BatchNorm1d(H1)
+        self.bn1 = torch.nn.BatchNorm1d(H1)
         self.fc2 = torch.nn.Linear(H1, H2)
-        #self.bn2 = torch.nn.BatchNorm1d(H2)
+        self.bn2 = torch.nn.BatchNorm1d(H2)
         self.fc3 = torch.nn.Linear(H2, out_dim)
-        #self.bn3 = torch.nn.BatchNorm1d(out_dim)
+        self.bn3 = torch.nn.BatchNorm1d(out_dim)
 
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
-        #x = self.bn1(x)
+        x = self.bn1(x)
         x = F.leaky_relu(self.fc2(x))
-        #x = self.bn2(x)
+        x = self.bn2(x)
         x = F.leaky_relu(self.fc3(x))
-        #x = self.bn3(x)
+        x = self.bn3(x)
         return x
 
 
@@ -50,22 +50,22 @@ class Fe(torch.nn.Module):
     def __init__(self, in_dim, H, out_dim):
         super(Fe, self).__init__()
         self.fc1 = torch.nn.Linear(in_dim, H)
-        #self.bn1 = torch.nn.BatchNorm1d(H)
+        self.bn1 = torch.nn.BatchNorm1d(H)
         self.fc2 = torch.nn.Linear(H, out_dim)
-        #self.bn2 = torch.nn.BatchNorm1d(out_dim)
+        self.bn2 = torch.nn.BatchNorm1d(out_dim)
 
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
-        #x = self.bn1(x)
+        x = self.bn1(x)
         x = F.leaky_relu(self.fc2(x))
-        #x = self.bn2(x)
+        x = self.bn2(x)
         return x
 
 
 class C2AE(torch.nn.Module):
 
     def __init__(self, classification, fx, fe, fd, beta=1, alpha=.5, emb_lambda=.5, latent_dim=6,
-                 device=None):
+                 device=None, onehot_current_cat_full=None):
         super().__init__()
         # Define main network components.
         self.classification = classification
@@ -82,6 +82,7 @@ class C2AE(torch.nn.Module):
         # Lagrange to use in embedding loss.
         self.emb_lambda = emb_lambda
         self.latent_I = torch.eye(latent_dim).to(device)
+        self.onehot_current_cat_full = onehot_current_cat_full
 
     def forward(self, batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
                 batch_onehot_current_cat=None, current_minus1_cat=None):
@@ -102,11 +103,11 @@ class C2AE(torch.nn.Module):
             fx_x = self.fx(x)
             fe_y = self.fe(batch_onehot_current_cat.float())
 
-            # fe_y_t = self.fe(current_minus1_cat.float())
+            #fe_y_t = self.fe(current_minus1_cat.float())
             # current_minus1_cat.float())
             # Calculate decoded latent representation.
             fd_z = self.fd(fe_y)
-            return fx_x, fe_y, fd_z
+            return fx_x, fe_y, fd_z #, fe_y_t
         else:
             x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
             # If evaluating just send through encoder and decoder.
@@ -146,6 +147,12 @@ class C2AE(torch.nn.Module):
         # This will only indicate locations where both masks are 1.
         # THis corresponds to set we are enumerating in eq (3) in Yah et al.
         ix_matrix = ones[:, :, None] & zeros[:, None, :]
+        # if self.onehot_current_cat_full is not None:
+        #     ix_matrix = ix_matrix.float()
+        #     for i in range(ix_matrix.shape[-1]):
+        #         ix_matrix[..., i] /= self.onehot_current_cat_full
+        #     ix_matrix[ix_matrix == float('Inf')] = 0
+        #     ix_matrix[torch.isnan(ix_matrix)] = 0
         # Use same broadcasting logic to generate exponetial differences.
         # This like the above broadcast will do so between all pairs of points
         # for every datapoint.
@@ -186,6 +193,6 @@ class C2AE(torch.nn.Module):
         when composing the loss function.
         """
         l_loss = self.latent_loss(fx_x, fe_y)
-        #l_loss_t = self.latent_loss(fx_x, fe_y_t)
+        #l_loss_t = self.latent_loss(fe_y, fe_y_t)
         c_loss = self.corr_loss(fd_z, y)
-        return l_loss, c_loss#, l_loss_t
+        return l_loss, c_loss

@@ -3,6 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 import sys
 sys.path.append("../",)
+from models.regression.transformer1 import TransformerNet
 
 from launch_scripts.train_lstm_material import mean_patk, mean_ratk, mapk
 from models.regression.lstm_material import ClassificationNet
@@ -118,15 +119,15 @@ def train():
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=dataloader_num_workers)
 
-    onehot_current_cat_full = None
-    for batch_ind, batch_arrays in enumerate(train_dataloader):
-        batch_arrays = [arr.to(device) for arr in batch_arrays]
-        [_, _, _, _, batch_onehot_current_cat, _, _, _] = batch_arrays
-        if onehot_current_cat_full is None:
-            onehot_current_cat_full = torch.sum(batch_onehot_current_cat, dim=0).float()
-        else:
-            onehot_current_cat_full += torch.sum(batch_onehot_current_cat, dim=0).float()
-    onehot_current_cat_full /= torch.sum(onehot_current_cat_full)
+    # onehot_current_cat_full = None
+    # for batch_ind, batch_arrays in enumerate(train_dataloader):
+    #     batch_arrays = [arr.to(device) for arr in batch_arrays]
+    #     [_, _, _, _, batch_onehot_current_cat, _, _, _] = batch_arrays
+    #     if onehot_current_cat_full is None:
+    #         onehot_current_cat_full = torch.sum(batch_onehot_current_cat, dim=0).float()
+    #     else:
+    #         onehot_current_cat_full += torch.sum(batch_onehot_current_cat, dim=0).float()
+    # onehot_current_cat_full /= torch.sum(onehot_current_cat_full)
 
     os.makedirs(results_folder+'checkpoints/', exist_ok=True)
     classifier_net = ClassificationNet(linear_num_feat_dim, cat_embedding_dim, lstm_hidden_dim,
@@ -147,72 +148,29 @@ def train():
     fd = Fd(latent_dim, fd_hidden_dim, num_labels, fin_act=torch.sigmoid).to(device)
     c2ae = C2AE(classifier_net.to(device), fx, fe, fd, beta=0.5, alpha=10, emb_lambda=0.01, latent_dim=latent_dim,
                 device=device, onehot_current_cat_full=onehot_current_cat_full).to(device)
+    cat_vocab_size = train_dataset.cat_vocab_size
+    id_vocab_size = train_dataset.id_vocab_size
+    amount_vocab_size = train_dataset.amount_vocab_size
+    dt_vocab_size = train_dataset.dt_vocab_size
+    emb_dim = 128
 
+    transf = TransformerNet(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size,
+                         dt_vocab_size, emb_dim)
     #c2ae.load_state_dict(torch.load(checkpoint, map_location=device))
     #c2ae.train()
 
-    optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr)
+    optimizer = torch.optim.AdamW(transf.parameters(), lr=optimizer_lr)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=scheduler_factor,
                                                            patience=scheduler_patience)
     #scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
     early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True, path=checkpoint)
-    val_every_500 = False
+
     for epoch in range(1, num_epochs+1):
         c2ae.train()
         epoch_train_loss = 0
         print('Training...')
         for batch_ind, batch_arrays in enumerate(train_dataloader):
-
-            # if batch_ind % 500 == 0:
-            #     print(f'Validation step{batch_ind}.')
-            #     c2ae.eval()
-            #     output_list = []
-            #     gt_list = []
-            #     for batch_ind, batch_arrays in enumerate(valid_dataloader):
-            #         batch_arrays = [arr.to(device) for arr in batch_arrays]
-            #         [batch_cat_arr, batch_mask_cat,
-            #          batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-            #          batch_num_arr, batch_id_arr, batch_target] = batch_arrays  # current_minus1_cat] = batch_arrays
-            #
-            #         #batch_cat_arr_minus1 = torch.zeros((batch_cat_arr.shape[0],
-            #         #                                    batch_cat_arr.shape[1]+1,
-            #         #                                    batch_cat_arr.shape[2])).to(device)
-            #         #batch_cat_arr_minus1[:, :-1] = batch_cat_arr
-            #         #for i in range(round(batch_cat_arr.shape[2] * 0.7)):
-            #         #    batch_cat_arr_minus1[:, -1, i] = batch_cat_arr[:, -1, 3]
-            #         #batch_mask_cat_minus1 = torch.ones((batch_mask_cat.shape[0],
-            #         #                                    batch_mask_cat.shape[1] + 1,
-            #         #                                    batch_mask_cat.shape[2])).to(device)
-            #         #batch_mask_cat_minus1[:, :-1] = batch_mask_cat
-            #
-            #         output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr,
-            #                       batch_id_arr)  # current_minus1_cat=current_minus1_cat)
-            #         # output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
-            #         output_list.append(output.detach().cpu())
-            #         gt_list.append(batch_onehot_current_cat.detach().cpu())
-            #
-            #     all_output = torch.cat(output_list, dim=0)
-            #     all_gt = torch.cat(gt_list, dim=0)
-            #     val_mean_patk = {i: mean_patk(all_output, all_gt, k=i) for i in range(1, 5)}
-            #     val_mean_ratk = {i: mean_ratk(all_output, all_gt, k=i) for i in range(1, 5)}
-            #     val_mapk = {i: mapk(all_output, all_gt, k=i) for i in range(1, 5)}
-            #
-            #     print(f'Valid Precision@k {val_mean_patk} || Valid Recall@k {val_mean_ratk}|| Valid MAP@k {val_mapk})')
-            #
-            #     scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-            #                              np.mean(list(val_mean_ratk.values()))) /
-            #                             (np.mean(list(val_mean_ratk.values())) +
-            #                              np.mean(list(val_mean_patk.values())))))
-            #     # scheduler.step()
-            #     early_stopping(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-            #                              np.mean(list(val_mean_ratk.values()))) /
-            #                             (np.mean(list(val_mean_ratk.values())) +
-            #                              np.mean(list(val_mean_patk.values())))), c2ae)
-            #     if early_stopping.early_stop:
-            #         print('Early stopping')
-            #         break
-            # c2ae.train()
 
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_mask_cat,
@@ -229,8 +187,6 @@ def train():
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item()
-            #if val_every_500 and not ((batch_ind + 1) % 1000):
-            #    break
 
         print(f'Epoch {epoch}/{num_epochs} || Train loss {epoch_train_loss}')
 
@@ -243,17 +199,6 @@ def train():
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
              batch_num_arr, batch_id_arr, batch_target] = batch_arrays # current_minus1_cat] = batch_arrays
-
-            # batch_cat_arr_minus1 = torch.zeros((batch_cat_arr.shape[0],
-            #                                     batch_cat_arr.shape[1]+1,
-            #                                     batch_cat_arr.shape[2])).to(device)
-            # batch_cat_arr_minus1[:, :-1] = batch_cat_arr
-            # for i in range(round(batch_cat_arr.shape[2] * 0.7)):
-            #     batch_cat_arr_minus1[:, -1, i] = batch_cat_arr[:, -1, 3]
-            # batch_mask_cat_minus1 = torch.ones((batch_mask_cat.shape[0],
-            #                                     batch_mask_cat.shape[1] + 1,
-            #                                     batch_mask_cat.shape[2])).to(device)
-            # batch_mask_cat_minus1[:, :-1] = batch_mask_cat
 
             output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr) #current_minus1_cat=current_minus1_cat)
             #output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
@@ -270,22 +215,7 @@ def train():
 
         val_mean_patk = {i: mean_patk(all_output, all_gt, k=i) for i in range(1, 2)}
         val_mean_ratk = {i: mean_ratk(all_output, all_gt, k=i) for i in range(1, 2)}
-        # if (1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-        #                   np.mean(list(val_mean_ratk.values()))) /
-        #                (np.mean(list(val_mean_ratk.values())) +
-        #                 np.mean(list(val_mean_patk.values()))))) < 0.29:
-        #
-        #     optimizer = torch.optim.AdamW(c2ae.parameters(), lr=optimizer_lr*0.001)
-        #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.999,
-        #                                                            patience=scheduler_patience)
-        #     val_every_500 = True
-        #     print("Fine tuning begin!")
-        # else:
-        #     scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
-        #                       np.mean(list(val_mean_ratk.values()))) /
-        #                    (np.mean(list(val_mean_ratk.values())) +
-        #                     np.mean(list(val_mean_patk.values())))))
-        #scheduler.step()
+
         scheduler.step(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
                                np.mean(list(val_mean_ratk.values()))) /
                             (np.mean(list(val_mean_ratk.values())) +
@@ -312,18 +242,6 @@ def train():
          batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
          batch_num_arr, batch_id_arr, batch_target] = batch_arrays
 
-        # batch_cat_arr_minus1 = torch.zeros((batch_cat_arr.shape[0],
-        #                                     batch_cat_arr.shape[1] + 1,
-        #                                     batch_cat_arr.shape[2])).to(device)
-        # batch_cat_arr_minus1[:, :-1] = batch_cat_arr
-        # for i in range(round(batch_cat_arr.shape[2] * 0.7)):
-        #     batch_cat_arr_minus1[:, -1, i] = batch_cat_arr[:, -1, 3]
-        # batch_mask_cat_minus1 = torch.ones((batch_mask_cat.shape[0],
-        #                                     batch_mask_cat.shape[1] + 1,
-        #                                     batch_mask_cat.shape[2])).to(device)
-        # batch_mask_cat_minus1[:, :-1] = batch_mask_cat
-
-        #output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
 
         output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr) #current_minus1_cat=current_minus1_cat)
         output_list.append(output.detach().cpu())
