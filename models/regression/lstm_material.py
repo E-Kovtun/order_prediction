@@ -27,7 +27,7 @@ class ClassificationNet(nn.Module):
 
         self.lstm_encoding_cat = LSTMEncoding(cat_embedding_dim, lstm_hidden_dim)
 
-        self.linear_num_feat = nn.Linear(2, linear_num_feat_dim, bias=False)
+        self.linear_num_feat = nn.Linear(2, linear_num_feat_dim)
         self.lstm_encoding_num = LSTMEncoding(linear_num_feat_dim, lstm_hidden_dim)
 
         self.cat_embedding = nn.Embedding(num_embeddings=cat_vocab_size + 1, embedding_dim=cat_embedding_dim,

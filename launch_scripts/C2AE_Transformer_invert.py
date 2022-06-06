@@ -3,16 +3,15 @@ from torch import nn
 from torch.utils.data import DataLoader
 import sys
 sys.path.append("../",)
-from models.regression.transformer1 import TransformerNet
+from models.C2AE.C2AE_Transformer_invert import C2AE_Transformer_invert
 
 from launch_scripts.train_lstm_material import mean_patk, mean_ratk, mapk
-from models.regression.lstm_material import ClassificationNet
-from models.C2AE.C2AE_class import C2AE, Fd, Fe, Fx
 from data_preparation.data_reader_upd import OrderReader
 import numpy as np
 import os
 import json
 from tqdm import tqdm
+from launch_scripts.train_transformer import multilabel_crossentropy_loss
 
 torch.manual_seed(42)
 
@@ -69,15 +68,15 @@ class EarlyStopping:
 
 def train():
 
-    # data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
-    # train_file = "df_beer_train_nn.csv"
-    # test_file = "df_beer_test.csv"
-    # valid_file = "df_beer_valid_nn.csv"
+    data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
+    train_file = "df_beer_train_nn.csv"
+    test_file = "df_beer_test.csv"
+    valid_file = "df_beer_valid_nn.csv"
 
-    data_folder = "/NOTEBOOK/UHH/"
-    train_file = "sales_train.csv"
-    test_file = "sales_test.csv"
-    valid_file = "sales_valid.csv"
+    # data_folder = "/NOTEBOOK/UHH/"
+    # train_file = "sales_train.csv"
+    # test_file = "sales_test.csv"
+    # valid_file = "sales_valid.csv"
 
     look_back = 3
 
@@ -90,9 +89,9 @@ def train():
     scheduler_factor = 0.9
     scheduler_patience = 5
 
-    early_stopping_patience = 200
+    early_stopping_patience = 20
     model_name = 'LSTM_WITH_C2AE'
-    results_folder = f'../C2AE_Sales_1exp_balancedLoss_lr1e-6/{model_name}/'
+    results_folder = f'../C2AE_Transformer_invert/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_c2ae.pt'
 
     if torch.cuda.is_available():
@@ -105,15 +104,6 @@ def train():
     train_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'train')
     test_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'test')
     valid_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'valid')
-
-    linear_num_feat_dim = 32
-    cat_embedding_dim = 512
-    lstm_hidden_dim = 1024
-    cat_vocab_size = train_dataset.cat_vocab_size
-    id_vocab_size = train_dataset.id_vocab_size
-    id_embedding_dim = 512
-    linear_concat1_dim = 1024
-    linear_concat2_dim = 512
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
@@ -130,36 +120,22 @@ def train():
     # onehot_current_cat_full /= torch.sum(onehot_current_cat_full)
 
     os.makedirs(results_folder+'checkpoints/', exist_ok=True)
-    classifier_net = ClassificationNet(linear_num_feat_dim, cat_embedding_dim, lstm_hidden_dim,
-                            cat_vocab_size, id_vocab_size,
-                            id_embedding_dim, linear_concat1_dim, linear_concat2_dim)
 
-    classifier_net.linear_material = nn.Linear(linear_concat2_dim, 512)
-    classifier_net.bn3 = nn.BatchNorm1d(512)
-    num_labels = cat_vocab_size + 1     # 61 + 1
-
-    latent_dim = 512
-    fx_hidden_dim = 1024
-    fe_hidden_dim = 256
-    fd_hidden_dim = 256
-
-    fx = Fx(512, fx_hidden_dim, fx_hidden_dim, latent_dim).to(device)
-    fe = Fe(num_labels, fe_hidden_dim, latent_dim).to(device)
-    fd = Fd(latent_dim, fd_hidden_dim, num_labels, fin_act=torch.sigmoid).to(device)
-    c2ae = C2AE(classifier_net.to(device), fx, fe, fd, beta=0.5, alpha=10, emb_lambda=0.01, latent_dim=latent_dim,
-                device=device, onehot_current_cat_full=onehot_current_cat_full).to(device)
     cat_vocab_size = train_dataset.cat_vocab_size
     id_vocab_size = train_dataset.id_vocab_size
     amount_vocab_size = train_dataset.amount_vocab_size
     dt_vocab_size = train_dataset.dt_vocab_size
-    emb_dim = 128
+    emb_dim = 512
 
-    transf = TransformerNet(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size,
-                         dt_vocab_size, emb_dim)
-    #c2ae.load_state_dict(torch.load(checkpoint, map_location=device))
-    #c2ae.train()
+    net = C2AE_Transformer_invert(look_back=look_back,
+                                  cat_vocab_size=cat_vocab_size,
+                                  id_vocab_size=id_vocab_size,
+                                  amount_vocab_size=amount_vocab_size,
+                                  dt_vocab_size=dt_vocab_size,
+                                  emb_dim=emb_dim,
+                                  device=device).to(device)
 
-    optimizer = torch.optim.AdamW(transf.parameters(), lr=optimizer_lr)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=optimizer_lr)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=scheduler_factor,
                                                            patience=scheduler_patience)
@@ -167,7 +143,9 @@ def train():
     early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True, path=checkpoint)
 
     for epoch in range(1, num_epochs+1):
-        c2ae.train()
+        net.train()
+        net.c2ae_cat.train()
+        net.c2ae_amount.train()
         epoch_train_loss = 0
         print('Training...')
         for batch_ind, batch_arrays in enumerate(train_dataloader):
@@ -175,32 +153,40 @@ def train():
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-             batch_num_arr, batch_id_arr, batch_target] = batch_arrays #current_minus1_cat] = batch_arrays
+             batch_num_arr, batch_id_arr, batch_target, dt_arr] = batch_arrays #current_minus1_cat] = batch_arrays
 
             optimizer.zero_grad()
-            fx_x, fe_y, fd_z = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
-                                    batch_onehot_current_cat) #, current_minus1_cat=current_minus1_cat)
-            # Calc losses.
-            l_loss, c_loss = c2ae.losses(fx_x, fe_y, fd_z, batch_onehot_current_cat)
+            x, cat_fx_x, cat_fe_y, cat_fd_z, amount_fx_x, amount_fe_y, amount_fd_z = net(
+                batch_cat_arr, batch_mask_cat, dt_arr, batch_num_arr, batch_id_arr,
+                batch_onehot_current_cat, batch_target)  # Here target as 'Amount'
+            # Calc losses:
+            # Transformer
+            print(x.shape, batch_onehot_current_cat.shape)
+            loss = 0. #multilabel_crossentropy_loss(x, batch_onehot_current_cat)
+            # C2AE cat, amount and dt latent losses
+            #loss += net.c2ae_cat.latent_loss(cat_fx_x, cat_fe_y)
+            #loss += net.c2ae_amount.latent_loss(amount_fx_x, amount_fe_y)
+            #TODO loss += net.c2ae_dt.latent_loss(dt_fx_x, dt_fe_y)
             #gamma = 0.9
-            loss = c2ae.beta * l_loss + c2ae.alpha * c_loss # + gamma * l_loss_t
-            loss.backward()
-            optimizer.step()
-            epoch_train_loss += loss.item()
-
+            #loss = c2ae.beta * l_loss + c2ae.alpha * c_loss # + gamma * l_loss_t
+            #loss.backward()
+            #optimizer.step()
+            #epoch_train_loss += loss.item()
+            print("+batch")
         print(f'Epoch {epoch}/{num_epochs} || Train loss {epoch_train_loss}')
 
         print('Validation...')
-        c2ae.eval()
+        net.eval()
         output_list = []
         gt_list = []
         for batch_ind, batch_arrays in enumerate(valid_dataloader):
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-             batch_num_arr, batch_id_arr, batch_target] = batch_arrays # current_minus1_cat] = batch_arrays
+             batch_num_arr, batch_id_arr, batch_target, dt_arr] = batch_arrays # current_minus1_cat] = batch_arrays
 
-            output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr) #current_minus1_cat=current_minus1_cat)
+            output = net(batch_cat_arr, batch_mask_cat, dt_arr, batch_num_arr,
+                         batch_id_arr, batch_onehot_current_cat, batch_target)  # Here target used as 'dt'
             #output = c2ae(batch_cat_arr_minus1.long(), batch_mask_cat_minus1.long(), batch_num_arr, batch_id_arr)
             output_list.append(output.detach().cpu())
             gt_list.append(batch_onehot_current_cat.detach().cpu())
@@ -223,7 +209,7 @@ def train():
         early_stopping(1 - 2 * ((np.mean(list(val_mean_patk.values())) *
                           np.mean(list(val_mean_ratk.values()))) /
                        (np.mean(list(val_mean_ratk.values())) +
-                        np.mean(list(val_mean_patk.values())))), c2ae)
+                        np.mean(list(val_mean_patk.values())))), net)
         if early_stopping.early_stop:
             print('Early stopping')
             break
@@ -231,8 +217,8 @@ def train():
 #------------------------------------------------------------
 
     #c2ae = C2AE(classifier_net, fx, fe, fd, latent_dim=latent_dim).to(device)
-    c2ae.load_state_dict(torch.load(checkpoint, map_location=device))
-    c2ae.eval()
+    net.load_state_dict(torch.load(checkpoint, map_location=device))
+    net.eval()
 
     output_list = []
     gt_list = []
@@ -243,7 +229,8 @@ def train():
          batch_num_arr, batch_id_arr, batch_target] = batch_arrays
 
 
-        output = c2ae(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr) #current_minus1_cat=current_minus1_cat)
+        output = net(batch_cat_arr, batch_mask_cat, batch_target,
+                                            batch_num_arr, batch_id_arr)
         output_list.append(output.detach().cpu())
         gt_list.append(batch_onehot_current_cat.detach().cpu())
 

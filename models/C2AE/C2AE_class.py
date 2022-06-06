@@ -107,7 +107,12 @@ class C2AE(torch.nn.Module):
             # current_minus1_cat.float())
             # Calculate decoded latent representation.
             fd_z = self.fd(fe_y)
-            return fx_x, fe_y, fd_z #, fe_y_t
+
+            if current_minus1_cat is not None:
+                fe_y_t = self.fe(current_minus1_cat.float())
+                return fx_x, fe_y, fd_z, fe_y_t
+            # current_minus1_cat.float())
+            return fx_x, fe_y, fd_z # , fe_y_t
         else:
             x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
             # If evaluating just send through encoder and decoder.
@@ -188,11 +193,11 @@ class C2AE(torch.nn.Module):
         # latent_loss = torch.mean((fx_x - fe_y)**2)
         return latent_loss
 
-    def losses(self, fx_x, fe_y, fd_z, y):
+    def losses(self, fx_x, fe_y, fd_z, y):  # fe_y_t
         """This method calculates the main loss functions required
         when composing the loss function.
         """
         l_loss = self.latent_loss(fx_x, fe_y)
-        #l_loss_t = self.latent_loss(fe_y, fe_y_t)
+        # l_loss_t = self.latent_loss(fe_y, fe_y_t)
         c_loss = self.corr_loss(fd_z, y)
-        return l_loss, c_loss
+        return l_loss, c_loss # , l_loss_t

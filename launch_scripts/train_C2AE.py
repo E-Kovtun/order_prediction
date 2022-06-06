@@ -68,15 +68,15 @@ class EarlyStopping:
 
 def train():
 
-    # data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
-    # train_file = "df_beer_train_nn.csv"
-    # test_file = "df_beer_test.csv"
-    # valid_file = "df_beer_valid_nn.csv"
+    data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
+    train_file = "df_beer_train_nn.csv"
+    test_file = "df_beer_test.csv"
+    valid_file = "df_beer_valid_nn.csv"
 
-    data_folder = "/NOTEBOOK/UHH/"
-    train_file = "sales_train.csv"
-    test_file = "sales_test.csv"
-    valid_file = "sales_valid.csv"
+    # data_folder = "/NOTEBOOK/UHH/"
+    # train_file = "sales_train.csv"
+    # test_file = "sales_test.csv"
+    # valid_file = "sales_valid.csv"
 
     look_back = 3
 
@@ -93,6 +93,7 @@ def train():
     model_name = 'LSTM_WITH_C2AE'
     results_folder = f'../C2AE_Sales_1exp_balancedLoss_lr1e-6/{model_name}/'
     checkpoint = results_folder + f'checkpoints/look_back_{look_back}_c2ae.pt'
+
 
     if torch.cuda.is_available():
         device = torch.device('cuda:0')

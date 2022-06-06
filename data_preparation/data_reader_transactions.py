@@ -31,6 +31,15 @@ class OrderReader(Dataset):
 
         self.max_cat_len = max_cat_len
 
+        # current_minus1_cat = pad_sequence([torch.tensor(
+        #     self.df_final.loc[pred_point - 1, self.order_dataset.categorical], dtype=torch.int64).unsqueeze(1)
+        #                                    for ref_points, pred_point in self.ind_combinations],
+        #                                   padding_value=self.cat_padding_value).squeeze().transpose(1, 0)
+        #
+        # mask_current_cat = torch.tensor(~(current_minus1_cat == self.cat_padding_value), dtype=torch.int64).unsqueeze(2)
+        # self.current_minus1_cat = torch.sum(
+        #     one_hot(current_minus1_cat, num_classes=self.cat_vocab_size + 1) * mask_current_cat, dim=1)
+
     def __len__(self):
         return len(self.ind_combinations)
 
@@ -76,6 +85,6 @@ class OrderReader(Dataset):
         #
         target_cat = (torch.tensor(len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]), dtype=torch.int64) - 1)
 
-        return [cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target_cat]
+        return cat_arr, mask_cat, current_cat, mask_current_cat, onehot_current_cat, num_arr, id_arr, target_cat#, self.current_minus1_cat[index, :]
 
 

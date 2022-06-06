@@ -4,13 +4,17 @@ from torch.utils.data import DataLoader
 import sys
 sys.path.append("../",)
 #from models.regression.number_material import NumberNet
-from models.regression.lstm_material import ClassificationNet
-from models.C2AE.C2AE_class import C2AE, Fd, Fe, Fx
-from data_preparation.data_reader_transactions import OrderReader
+
+from data_preparation.data_reader_upd import OrderReader
+from data_preparation.data_reader_transactions import OrderReader as OrderReaderTrans
 from torch.nn.functional import one_hot
 import numpy as np
 import os
 import json
+
+import xgboost as xgb
+from sklearn.multioutput import MultiOutputClassifier
+import pickle as pkl
 from tqdm import tqdm
 from utils.earlystopping import EarlyStopping
 torch.manual_seed(2)
@@ -18,13 +22,12 @@ from utils.utils import get_max_cat_len
 import warnings
 warnings.filterwarnings("ignore")
 
-
 class NumberNet(nn.Module):
     def __init__(self, cat_vocab_size, max_cat_len):
         super(NumberNet, self).__init__()
         self.max_cat_len = max_cat_len
 
-        self.linear1 = nn.Linear(cat_vocab_size + 1, 2 * max_cat_len)
+        self.linear1 = nn.Linear(cat_vocab_size+1, 2 * max_cat_len)
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(2 * max_cat_len, max_cat_len)
 
@@ -33,7 +36,6 @@ class NumberNet(nn.Module):
         x1 = self.relu(x1)
         x2 = self.linear2(x1)
         return x2
-
 def precision_mat(pred_mat, gt_mat):
     return len(np.intersect1d(pred_mat, gt_mat)) / len(pred_mat) if len(pred_mat) > 0 else 0
 
@@ -48,18 +50,8 @@ def f1_mat(pred_mat, gt_mat):
 
 
 def train():
-    data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
-    train_file = "df_beer_train_nn.csv"
-    test_file = "df_beer_test.csv"
-    valid_file = "df_beer_valid_nn.csv"
-
-    # train_file = "sales_train.csv"
-    # test_file = "sales_test.csv"
-    # valid_file = "sales_valid.csv"
-
     look_back = 3
-
-    num_epochs = 16
+    num_epochs = 7
     batch_size = 32
     dataloader_num_workers = 8
 
@@ -69,59 +61,44 @@ def train():
     scheduler_patience = 5
 
     early_stopping_patience = 15
-    model_name = 'LSTM_WITH_C2AE'
-    results_folder = f'../firstexp_5hypo_gamma_0_2_ver2+bn_gpu_100xhidden_10xlatent/{model_name}/'
-    checkpoint = results_folder + f'checkpoints/look_back_{look_back}_c2ae.pt'
+    data_folder = "/NOTEBOOK/UHH/Repository/Repository_LSTM/"
+    train_file = "df_beer_train_nn.csv"
+    train_test_file = "train_test.csv"
+    test_file = "df_beer_test.csv"
+    valid_file = "df_beer_valid_nn.csv"
+
+    train_dataset = OrderReaderTrans(data_folder, train_file, test_file, valid_file, look_back, 'train')
+    test_dataset = OrderReaderTrans(data_folder, train_file, test_file, valid_file, look_back, 'test')
+    train_test_dataset = OrderReader(data_folder, train_file, train_test_file, valid_file, look_back, 'test')
+    valid_dataset = OrderReaderTrans(data_folder, train_file, test_file, valid_file, look_back, 'valid')
+    model_name = 'XGBoost_multilabel'
+    results_folder = f'../XGBoost_multilabel/{model_name}/'
+    checkpoint = results_folder + f'checkpoints/look_back_{look_back}_xgboost_multilabel.pkl'
     checkpoint_num = results_folder + f'checkpoints/look_back_{look_back}_Cross_Entropy_num.pt'
 
-    if not torch.cuda.is_available():
+    os.makedirs(results_folder + 'checkpoints/', exist_ok=True)
+    if torch.cuda.is_available():
         device = torch.device('cuda:0')
     else:
         device = torch.device('cpu')
 
-    train_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'train')
-    test_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'test')
-    valid_dataset = OrderReader(data_folder, train_file, test_file, valid_file, look_back, 'valid')
+    # create XGBoost instance with default hyper-parameters
+    xgb_estimator = xgb.XGBClassifier(objective='binary:logistic')
 
-    linear_num_feat_dim = 32
-    cat_embedding_dim = 512
-    lstm_hidden_dim = 1024
-    id_embedding_dim = 512
-    linear_concat1_dim = 1024
-    linear_concat2_dim = 512
+    # create MultiOutputClassifier instance with XGBoost model inside
+    multilabel_model = MultiOutputClassifier(xgb_estimator)
+
+    multilabel_model = pkl.load(open(checkpoint, 'rb'))
     cat_vocab_size = train_dataset.cat_vocab_size
-    id_vocab_size = train_dataset.id_vocab_size
     max_cat_len = train_dataset.max_cat_len
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=dataloader_num_workers)
 
-    os.makedirs(results_folder+'checkpoints/', exist_ok=True)
 
     number_net = NumberNet(cat_vocab_size, max_cat_len).to(device)
-    classifier_net = ClassificationNet(linear_num_feat_dim, cat_embedding_dim, lstm_hidden_dim,
-                                       cat_vocab_size, id_vocab_size,
-                                       id_embedding_dim, linear_concat1_dim, linear_concat2_dim)
 
-    classifier_net.linear_material = nn.Linear(linear_concat2_dim, 512)
-    classifier_net.bn3 = nn.BatchNorm1d(512)
-    num_labels = cat_vocab_size + 1  # 61 + 1
-
-    latent_dim = 512
-    fx_hidden_dim = 1024
-    fe_hidden_dim = 256
-    fd_hidden_dim = 256
-
-    fx = Fx(512, fx_hidden_dim, fx_hidden_dim, latent_dim).to(device)
-    fe = Fe(num_labels, fe_hidden_dim, latent_dim).to(device)
-    fd = Fd(latent_dim, fd_hidden_dim, num_labels, fin_act=torch.sigmoid).to(device)
-
-    net = C2AE(classifier_net.to(device), fx, fe, fd, beta=0.5, alpha=10, emb_lambda=0.01, latent_dim=latent_dim,
-                device=device).to(device)
-    net.load_state_dict(torch.load(checkpoint, map_location=device))
-    net.classification.train(False)
-    net.train(False)
     classification_loss = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.Adam(number_net.parameters(), lr=optimizer_lr)
@@ -138,12 +115,17 @@ def train():
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-             batch_num_arr, batch_id_arr, batch_target, current_minus1_cat] = batch_arrays
+             batch_num_arr, batch_id_arr, batch_target] = batch_arrays #current_minus1_cat
             optimizer.zero_grad()
-            output_material = net(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
-                                  batch_onehot_current_cat=batch_onehot_current_cat, current_minus1_cat=current_minus1_cat)
 
-            output_num = number_net(output_material)
+            X_train = torch.cat((batch_id_arr.unsqueeze(1),
+                                 torch.cat((batch_mask_cat * batch_cat_arr, batch_num_arr),
+                                           axis=2).reshape(len(batch_id_arr), -1)), axis=1)
+
+            output_material = multilabel_model.predict(X_train.cpu())
+            output_material = torch.tensor(output_material).to(device)
+
+            output_num = number_net(output_material.float())
             batch_gt_labels = batch_target
             loss = classification_loss(output_num, batch_gt_labels) #.float().reshape(-1, 1))
             epoch_train_loss += loss.item()
@@ -163,12 +145,20 @@ def train():
             batch_arrays = [arr.to(device) for arr in batch_arrays]
             [batch_cat_arr, batch_mask_cat,
              batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-             batch_num_arr, batch_id_arr, batch_target, current_minus1_cat] = batch_arrays
-            output_material = net(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
-            output_num = number_net(output_material)
+             batch_num_arr, batch_id_arr, batch_target] = batch_arrays
+            X_valid = torch.cat((batch_id_arr.unsqueeze(1),
+                                 torch.cat((batch_mask_cat * batch_cat_arr, batch_num_arr),
+                                           axis=2).reshape(len(batch_id_arr), -1)), axis=1)
+            output_material = multilabel_model.predict(X_valid.cpu())
+            output_material = torch.tensor(output_material).to(device)
+            output_num = number_net(output_material.float())
             batch_gt_labels = batch_target
             loss = classification_loss(output_num, batch_gt_labels)
             epoch_valid_loss += loss.item()
+            if batch_ind % 100 == 0:
+                print("100 batches Done!")
+            if batch_ind > len(valid_dataloader):
+                break
 
         print(f'Epoch {epoch}/{num_epochs} || Valid loss {epoch_valid_loss}')
 
@@ -192,9 +182,14 @@ def train():
         batch_arrays = [arr.to(device) for arr in batch_arrays]
         [batch_cat_arr, batch_mask_cat,
          batch_current_cat, batch_mask_current_cat, batch_onehot_current_cat,
-         batch_num_arr, batch_id_arr, batch_target, current_minus1_cat] = batch_arrays
-        output_material = net(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
-        output_num = number_net(output_material)
+         batch_num_arr, batch_id_arr, batch_target] = batch_arrays
+        #test_len = len(test_dataset.id_arr)
+        X_test = torch.cat((batch_id_arr.unsqueeze(1), torch.cat((batch_mask_cat * batch_cat_arr,
+                                       batch_num_arr), axis=2).reshape(len(batch_id_arr), -1)), axis=1)
+
+        output_material = torch.Tensor(multilabel_model.predict(X_test.cpu()))
+        output_material = torch.tensor(output_material).to(device)
+        output_num = number_net(output_material.float())
 
         predicted_materials = [
             torch.topk(output_material[b, :], dim=0, k=torch.argmax(output_num[b, :], dim=0) + 1).indices.tolist()

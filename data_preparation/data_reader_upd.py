@@ -13,8 +13,8 @@ class OrderReader(Dataset):
         self.order_dataset = OrderDataset(data_folder, train_file, test_file, valid_file, look_back)
         self.phase = phase
 
-        [train_final, test_final, valid_final], mms, cat_vocab_size, id_vocab_size = \
-            self.order_dataset.preprocess_dataframe()
+        [train_final, test_final, valid_final], mms, cat_vocab_size, id_vocab_size, max_cat_len = \
+            self.order_dataset.preprocess_dataframe() # , amount_vocab_size, dt_vocab_size
         self.mms = mms
         if self.phase == 'train':
             self.df_final, self.ind_combinations = train_final, self.order_dataset.window_combinations(train_final)
@@ -25,9 +25,11 @@ class OrderReader(Dataset):
 
         self.cat_vocab_size = cat_vocab_size
         self.id_vocab_size = id_vocab_size
+        #self.amount_vocab_size = amount_vocab_size
+        #self.dt_vocab_size = dt_vocab_size
         self.cat_padding_value = cat_vocab_size
         self.amount_padding_value = 100
-
+        self.max_cat_len = max_cat_len
         # for now we sum embeddings and amounts relate to one day
         # num_arr consists of summed amount and dt
         self.cat_arr, self.mask_cat, \
@@ -98,9 +100,14 @@ class OrderReader(Dataset):
         # number_arr = (torch.tensor(
         #     len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]),
         #     dtype=torch.int64) - 1)
+
+        # look_back
+        dt_arr = torch.tensor([self.df_final.loc[ref_i, self.order_dataset.dt]
+                               for ref_i in self.ind_combinations[index][0]], dtype=torch.int64)
+
         return [self.cat_arr[index, :, :], self.mask_cat[index, :, :],
                 self.current_cat[index, :], self.mask_current_cat[index, :, :], self.onehot_current_cat[index, :],
-                self.num_arr[index, :, :], self.id_arr[index, :], self.target[index, :]] #, self.current_minus1_cat[index, :]]
+                self.num_arr[index, :, :], self.id_arr[index, :], self.target[index, :]] #, dt_arr] #, self.current_minus1_cat[index, :]]
 
 
 
