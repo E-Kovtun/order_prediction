@@ -1,0 +1,9 @@
+{
+  "num_epochs": 500,
+  "batch_size": 32,
+  "dataloader_num_workers": 2,
+  "optimizer_lr": 1e-4,
+  "scheduler_factor":  0.3,
+  "scheduler_patience": 5,
+  "early_stopping_patience": 15
+}

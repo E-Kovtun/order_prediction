@@ -1,0 +1,7 @@
+{
+  "prepared_folder": "../data/prepared/sales/",
+  "model_name": "LSTMnet",
+  "look_back": 3,
+  "emb_dim": 128,
+  "rand_seed": 2
+}
