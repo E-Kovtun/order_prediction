@@ -1,18 +1,24 @@
 from data_preparation.dataset_preparation import OrderDataset
 import numpy as np
+import pandas as pd
 from sklearn.metrics import r2_score, mean_absolute_error
 import json
 from sacred import Experiment
 import os
 
-
+'''
 ex = Experiment('BaselineRegressor')
-# ex.add_config('configs/basic.json')
+ex.add_config('configs/basic.json')
 @ex.automain
-def baseline_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value):
-    model_name = 'BaselineRegressor'
-    order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value)
+'''
+def baseline_model(data_folder, train_file, test_file, look_back, fix_material, current_info, predicted_value,
+                   file_name, newtime=None):
+
+    model_name = file_name
+    order_dataset = OrderDataset(data_folder, train_file, test_file, look_back, fix_material,
+                                     current_info, predicted_value, newtime=newtime)
     train_data, test_data = order_dataset.preprocess_dataframe()
+
     test_comb = order_dataset.window_combinations(test_data)
     y_pred = []
     y_gt = []
@@ -23,6 +29,6 @@ def baseline_model(data_folder, train_file, test_file, look_back, fix_material, 
     r2_metric = r2_score(y_gt, y_pred)
 
     print(f'{model_name}, test_r2_score = {r2_metric}')
-    os.makedirs(f'results/{model_name}/', exist_ok=True)
-    with open(f'results/{model_name}/look_back_{look_back}_curr_{current_info}_fix_{fix_material}.json', 'w', encoding='utf-8') as f:
+    os.makedirs('results/', exist_ok=True)
+    with open(f'results/{model_name}_metrics.json', 'w', encoding='utf-8') as f:
         json.dump({'test_r2_score': r2_metric}, f)
