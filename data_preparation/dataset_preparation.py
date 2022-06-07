@@ -82,41 +82,17 @@ class OrderDataset:
         id_vocab = get_vocab(train, test, valid, self.id)
         id_vocab_size = id_vocab.shape[1]
 
-        # amount_discretizer = get_fitted_discretizer(train, test, valid, self.amount)
-        # amount_vocab_size = amount_discretizer.n_bins_[0]
-        #
-        # datasets = [train, test, valid]
-        # processed_datasets = []
-        # for df in datasets:
-        #     prepared_df = self.prepare_features(df, categorical_vocab, id_vocab)
-        #     prepared_df[self.amount] = amount_discretizer.transform(prepared_df[self.amount].values.reshape(-1, 1)).astype(np.int64)
-        #     grouped_df = self.group_rows(prepared_df)
-        #     self.add_time_difference(grouped_df)
-        #     processed_datasets.append(grouped_df)
-
-#-------------------------
-        amount_scaler = get_fitted_scaler(train, test, valid, self.amount)
+        amount_discretizer = get_fitted_discretizer(train, test, valid, self.amount)
+        amount_vocab_size = amount_discretizer.n_bins_[0]
 
         datasets = [train, test, valid]
-
-        prepared_datasets = []
+        processed_datasets = []
         for df in datasets:
             prepared_df = self.prepare_features(df, categorical_vocab, id_vocab)
-            prepared_df[self.amount] = amount_scaler.transform(prepared_df[self.amount].values.reshape(-1, 1))
-            prepared_datasets.append(prepared_df)
-
-        processed_datasets = []
-        amount_discretizer = get_fitted_discretizer(*prepared_datasets, self.amount)
-        amount_vocab_size = amount_discretizer.n_bins_[0]
-        for prepared_df in prepared_datasets:
-            prepared_df[self.amount] = amount_discretizer.transform(
-                prepared_df[self.amount].values.reshape(-1, 1)).astype(np.int64)
+            prepared_df[self.amount] = amount_discretizer.transform(prepared_df[self.amount].values.reshape(-1, 1)).astype(np.int64)
             grouped_df = self.group_rows(prepared_df)
-            # self.add_relative_time(grouped_df)
             self.add_time_difference(grouped_df)
             processed_datasets.append(grouped_df)
-
-#------------------------
 
         max_cat_len = get_max_cat_len(*processed_datasets, self.categorical)
 

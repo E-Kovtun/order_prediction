@@ -6,7 +6,8 @@ import torch
 
 # Example-Based
 def precision_ex_based(all_preds, all_gt):
-    return np.mean(np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_preds, axis=1))
+    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=1)[i] / np.sum(all_preds, axis=1)[i]
+                    if np.sum(all_preds, axis=1)[i] > 0 else 0 for i in range(all_gt.shape[0])])
 
 
 def recall_ex_based(all_preds, all_gt):
@@ -17,7 +18,7 @@ def f1_ex_based(all_preds, all_gt):
     precision_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_preds, axis=1)
     recall_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1)
     return np.mean([2 * precision_samples[i] * recall_samples[i] / (precision_samples[i] + recall_samples[i])
-                    if (precision_samples[i] + recall_samples[i]) > 0 else 0 for i in range(len(precision_samples))])
+                    if (precision_samples[i] + recall_samples[i]) > 0 else 0 for i in range(all_gt.shape[0])])
 
 
 # Label-based

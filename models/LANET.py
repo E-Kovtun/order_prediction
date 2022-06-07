@@ -71,15 +71,9 @@ class TransformerLabelNet(nn.Module):
         self.bn_labels = nn.BatchNorm1d(cat_vocab_size)
         self.relu = nn.ReLU()
 
-        self.linear1_numbernet = nn.Linear(cat_vocab_size, 2*max_cat_len)
-        self.linear2_numbernet = nn.Linear(2*max_cat_len, max_cat_len)
-
     def forward(self, cat_arr, dt_arr, amount_arr, id_arr):
         x_history = self.transformer_encoder(cat_arr, dt_arr, amount_arr, id_arr)
         x_history = self.dropout(x_history)
         z_history = self.encoder_history(x_history).squeeze(2)
 
-        x1_n = self.linear1_numbernet(z_history)
-        x1_n = self.relu(x1_n)
-        x2_n = self.linear2_numbernet(x1_n)
-        return z_history, x2_n
+        return z_history

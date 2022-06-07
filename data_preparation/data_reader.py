@@ -61,8 +61,4 @@ class OrderReader(Dataset):
         id_arr = torch.tensor(self.df_final.loc[self.ind_combinations[index][0][0], self.order_dataset.id],
                               dtype=torch.int64)
 
-        number_arr = (torch.tensor(
-            len(self.df_final.loc[self.ind_combinations[index][1], self.order_dataset.categorical]),
-            dtype=torch.int64) - 1)
-
-        return cat_arr, current_cat, dt_arr, amount_arr, id_arr, number_arr
+        return cat_arr, current_cat, dt_arr, amount_arr, id_arr

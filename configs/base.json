@@ -1,7 +1,8 @@
 {
   "prepared_folder": "../data/prepared/sales/",
-  "model_name": "LSTMnet",
+  "model_name": "LANET",
   "look_back": 3,
   "emb_dim": 128,
-  "rand_seed": 2
+  "rand_seed": 1,
+  "result_name": "look_back_3_seed_1"
 }
