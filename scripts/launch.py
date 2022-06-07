@@ -124,7 +124,7 @@ def launch():
                value=1).tolist() for b in range(conf_scores.shape[0])]
         all_preds.extend(pred)
         all_gt.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
-        all_scores.extend(conf_scores.detach().cpu().numpy())
+        all_scores.extend(conf_scores.detach().cpu().tolist())
 
     metrics_dict = calculate_all_metrics(np.array(all_preds), np.array(all_gt), np.array(all_scores))
     os.makedirs(os.path.join('results/', dataset_name, model_name), exist_ok=True)

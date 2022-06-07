@@ -16,23 +16,25 @@ def recall_ex_based(all_preds, all_gt):
 def f1_ex_based(all_preds, all_gt):
     precision_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_preds, axis=1)
     recall_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1)
-    return np.mean(2 * precision_samples * recall_samples / (precision_samples + recall_samples))
+    return np.mean([2 * precision_samples[i] * recall_samples[i] / (precision_samples[i] + recall_samples[i])
+                    if (precision_samples[i] + recall_samples[i]) > 0 else 0 for i in range(len(precision_samples))])
 
 
 # Label-based
 # Macro averaged
 def precision_macro(all_preds, all_gt):
-    precision_per_class = np.sum(np.logical_and(all_preds, all_gt), axis=0) / np.sum(all_preds, axis=0)
-    return np.mean(precision_per_class)
+    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=0)[i] / np.sum(all_preds, axis=0)[i]
+                    if np.sum(all_preds, axis=0)[i] > 0 else 0 for i in range(all_preds.shape[1])])
 
 
 def recall_macro(all_preds, all_gt):
-    recall_per_class = np.sum(np.logical_and(all_preds, all_gt), axis=0) / np.sum(all_gt, axis=0)
-    return np.mean(recall_per_class)
+    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=0)[i] / np.sum(all_gt, axis=0)[i]
+                    if np.sum(all_gt, axis=0)[i] > 0 else 0 for i in range(all_gt.shape[1])])
 
 
 def f1_macro(all_preds, all_gt):
-    return np.mean(2 * np.sum(all_preds * all_gt, axis=0) / (np.sum(all_preds, axis=0) + np.sum(all_gt, axis=0)))
+    return np.mean([2 * np.sum(all_preds * all_gt, axis=0)[i] / (np.sum(all_preds, axis=0)[i] + np.sum(all_gt, axis=0)[i])
+                    if (np.sum(all_preds, axis=0)[i] + np.sum(all_gt, axis=0)[i]) > 0 else 0 for i in range(all_gt.shape[1])])
 
 
 # Micro averaged
