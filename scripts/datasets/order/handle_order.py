@@ -5,8 +5,8 @@ import os
 
 
 def prepare_order_dataset(init_folder, prepared_folder):
-    train = pd.read_csv(os.path.join(init_folder, 'df_beer_train.csv'), usecols=['Ship.to', 'Material', 'Delivery_Date_week', 'Amount_HL'])
-    test = pd.read_csv(os.path.join(init_folder, 'df_beer_test.csv'), usecols=['Ship.to', 'Material', 'Delivery_Date_week', 'Amount_HL'])
+    train = pd.read_csv(init_folder[:-1]+'df_beer_train.csv', usecols=['Ship.to', 'Material', 'Delivery_Date_week', 'Amount_HL'])
+    test = pd.read_csv(init_folder[:-1]+'df_beer_test.csv', usecols=['Ship.to', 'Material', 'Delivery_Date_week', 'Amount_HL'])
 
     train['Delivery_Date_week'] = pd.to_datetime(train['Delivery_Date_week'])
     train.rename(columns={'Ship.to': 'id', 'Delivery_Date_week': 'date', 'Material': 'label', 'Amount_HL': 'amount'}, inplace=True)

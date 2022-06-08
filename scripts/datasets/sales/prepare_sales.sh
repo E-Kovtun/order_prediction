@@ -9,4 +9,4 @@ cd -
 PREPARED_DATA_FOLDER="../data/prepared/sales/"
 mkdir -p ${PREPARED_DATA_FOLDER}
 echo "Splitting datasets into train-valid-test..."
-python3 scripts/datasets/sales/handle_sales.py ${INIT_DATA_FOLDER} ${PREPARED_DATA_FOLDER}
+python3 /NOTEBOOK/UHH/Repository/Repository_LSTM/Repository/scripts/datasets/sales/handle_sales.py ${INIT_DATA_FOLDER} ${PREPARED_DATA_FOLDER}
