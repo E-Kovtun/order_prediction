@@ -68,3 +68,6 @@ def evaluate():
                       index=['roc_auc_micro', 'roc_auc_macro'],
                       columns=['mean', 'std'])
     df.to_csv(os.path.join('results/', dataset_name, model_name, f'metrics_final.csv'))
+
+if __name__ == "__main__":
+    evaluate()
