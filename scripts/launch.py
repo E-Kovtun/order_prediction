@@ -26,7 +26,7 @@ def launch():
         train_params_dict["optimizer_lr"], train_params_dict["scheduler_factor"], train_params_dict["scheduler_patience"], \
         train_params_dict["early_stopping_patience"]
 
-    for rand_seed in rand_seed_list:
+    for rand_seed in tqdm(rand_seed_list):
         torch.manual_seed(rand_seed)
 
         dataset_name = os.path.basename(os.path.normpath(prepared_folder))
