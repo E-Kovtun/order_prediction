@@ -1,15 +1,11 @@
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
-from torch.nn.functional import one_hot
 from models.LANET import TransformerLabelNet
 from data_preparation.data_reader import OrderReader
-import numpy as np
 import os
 from utils.earlystopping import EarlyStopping
 import json
 from utils.multilabel_loss import multilabel_crossentropy_loss
-from utils.multilabel_metrics import calculate_all_metrics
 from tqdm import tqdm
 
 
@@ -39,7 +35,6 @@ def launch():
             device = torch.device('cpu')
 
         train_dataset = OrderReader(prepared_folder, look_back, 'train')
-        test_dataset = OrderReader(prepared_folder, look_back, 'test')
         valid_dataset = OrderReader(prepared_folder, look_back, 'valid')
 
         cat_vocab_size = train_dataset.cat_vocab_size
@@ -55,7 +50,6 @@ def launch():
                                                                patience=scheduler_patience)
 
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
-        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=dataloader_num_workers)
 
         early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True, path=checkpoint)
@@ -94,36 +88,6 @@ def launch():
             if early_stopping.early_stop:
                 print('Early stopping')
                 break
-
-    #------------------------------------------------------
-
-        # net.load_state_dict(torch.load(checkpoint, map_location=device))
-        # net.train(False)
-        # print('Testing...')
-        # all_preds = []
-        # all_scores = []
-        # all_gt = []
-        # for batch_ind, batch_arrays in enumerate(test_dataloader):
-        #     batch_arrays = [arr.to(device) for arr in batch_arrays]
-        #     [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-        #
-        #     conf_scores = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
-        #
-        #     batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
-        #     batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
-        #                                                  num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
-        #
-        #     pred = [torch.zeros(cat_vocab_size, dtype=torch.int64).index_fill_(dim=0,
-        #            index=torch.topk(conf_scores[b, :], dim=0, k=2).indices,
-        #            value=1).tolist() for b in range(conf_scores.shape[0])]
-        #     all_preds.extend(pred)
-        #     all_gt.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
-        #     all_scores.extend(conf_scores.detach().cpu().tolist())
-        #
-        # metrics_dict = calculate_all_metrics(np.array(all_preds), np.array(all_gt), np.array(all_scores))
-        # os.makedirs(os.path.join('results/', dataset_name, model_name), exist_ok=True)
-        # with open(os.path.join('results/', dataset_name, model_name, f'metrics_look_back_{look_back}_seed_{rand_seed}.json'), 'w', encoding='utf-8') as f:
-        #     json.dump(metrics_dict, f)
 
 
 if __name__ == "__main__":
