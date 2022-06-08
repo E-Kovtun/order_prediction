@@ -14,12 +14,12 @@ from tqdm import tqdm
 
 
 def launch():
-    with open('configs/base.json}') as json_file:
+    with open('configs/base.json') as json_file:
         base_dict = json.load(json_file)
     prepared_folder, model_name, look_back, emb_dim, rand_seed_list = base_dict["prepared_folder"], base_dict["model_name"], \
         base_dict["look_back"], base_dict["emb_dim"], base_dict["rand_seed"]
 
-    with open('configs/train_params.json}') as json_file:
+    with open('configs/train_params.json') as json_file:
         train_params_dict = json.load(json_file)
     num_epochs, batch_size, dataloader_num_workers, optimizer_lr, scheduler_factor, scheduler_patience, early_stopping_patience = \
         train_params_dict["num_epochs"], train_params_dict["batch_size"], train_params_dict["dataloader_num_workers"], \
