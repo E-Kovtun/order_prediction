@@ -3,6 +3,5 @@
   "model_name": "LANET",
   "look_back": 3,
   "emb_dim": 128,
-  "rand_seed": 1,
-  "result_name": "look_back_3_seed_1"
+  "rand_seed": [1, 2, 3, 4, 5]
 }
