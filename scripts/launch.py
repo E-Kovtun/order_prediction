@@ -68,7 +68,7 @@ def launch():
                 batch_arrays = [arr.to(device) for arr in batch_arrays]
                 [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
                 optimizer.zero_grad()
-                conf_scores, output_num = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+                conf_scores = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
                 loss = multilabel_crossentropy_loss(conf_scores, batch_current_cat, cat_vocab_size)
                 epoch_train_loss += loss.item()
                 loss.backward()
@@ -82,7 +82,7 @@ def launch():
             for batch_ind, batch_arrays in enumerate(valid_dataloader):
                 batch_arrays = [arr.to(device) for arr in batch_arrays]
                 [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-                conf_scores, output_num = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+                conf_scores = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
                 loss = multilabel_crossentropy_loss(conf_scores, batch_current_cat, cat_vocab_size)
                 epoch_valid_loss += loss.item()
 
@@ -97,33 +97,33 @@ def launch():
 
     #------------------------------------------------------
 
-        net.load_state_dict(torch.load(checkpoint, map_location=device))
-        net.train(False)
-        print('Testing...')
-        all_preds = []
-        all_scores = []
-        all_gt = []
-        for batch_ind, batch_arrays in enumerate(test_dataloader):
-            batch_arrays = [arr.to(device) for arr in batch_arrays]
-            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
-
-            conf_scores, output_num = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
-
-            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
-            batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
-                                                         num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
-
-            pred = [torch.zeros(cat_vocab_size, dtype=torch.int64).index_fill_(dim=0,
-                   index=torch.topk(conf_scores[b, :], dim=0, k=torch.argmax(output_num[b, :], dim=0) + 1).indices,
-                   value=1).tolist() for b in range(conf_scores.shape[0])]
-            all_preds.extend(pred)
-            all_gt.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
-            all_scores.extend(conf_scores.detach().cpu().tolist())
-
-        metrics_dict = calculate_all_metrics(np.array(all_preds), np.array(all_gt), np.array(all_scores))
-        os.makedirs(os.path.join('results/', dataset_name, model_name), exist_ok=True)
-        with open(os.path.join('results/', dataset_name, model_name, f'metrics_look_back_{look_back}_seed_{rand_seed}.json'), 'w', encoding='utf-8') as f:
-            json.dump(metrics_dict, f)
+        # net.load_state_dict(torch.load(checkpoint, map_location=device))
+        # net.train(False)
+        # print('Testing...')
+        # all_preds = []
+        # all_scores = []
+        # all_gt = []
+        # for batch_ind, batch_arrays in enumerate(test_dataloader):
+        #     batch_arrays = [arr.to(device) for arr in batch_arrays]
+        #     [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
+        #
+        #     conf_scores = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
+        #
+        #     batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
+        #     batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
+        #                                                  num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
+        #
+        #     pred = [torch.zeros(cat_vocab_size, dtype=torch.int64).index_fill_(dim=0,
+        #            index=torch.topk(conf_scores[b, :], dim=0, k=2).indices,
+        #            value=1).tolist() for b in range(conf_scores.shape[0])]
+        #     all_preds.extend(pred)
+        #     all_gt.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
+        #     all_scores.extend(conf_scores.detach().cpu().tolist())
+        #
+        # metrics_dict = calculate_all_metrics(np.array(all_preds), np.array(all_gt), np.array(all_scores))
+        # os.makedirs(os.path.join('results/', dataset_name, model_name), exist_ok=True)
+        # with open(os.path.join('results/', dataset_name, model_name, f'metrics_look_back_{look_back}_seed_{rand_seed}.json'), 'w', encoding='utf-8') as f:
+        #     json.dump(metrics_dict, f)
 
 
 if __name__ == "__main__":
