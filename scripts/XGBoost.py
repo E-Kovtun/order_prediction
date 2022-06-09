@@ -15,6 +15,7 @@ from utils.roc_auc_metrics import calculate_roc_auc_metrics
 from sklearn.multioutput import MultiOutputClassifier
 import pickle as pkl
 import pandas as pd
+import random
 
 
 def mean_patk(output, multilabel_onehot_target, k):
@@ -42,8 +43,8 @@ def train():
 
     look_back = 3
 
-    prepared_folder = "datasets/data/prepared/gender/"
-    dataset_name = 'gender'
+    prepared_folder = "datasets/data/prepared/liquor/"
+    dataset_name = 'liquor'
     batch_size = 32
     dataloader_num_workers = 0
     rand_seed_list = [1, 2, 3, 4, 5]
@@ -51,8 +52,8 @@ def train():
     all_roc_auc_micro = []
     all_roc_auc_macro = []
     for rand_seed in tqdm(rand_seed_list):
-        torch.manual_seed(rand_seed)
-
+        random.seed(rand_seed)
+        print(torch.manual_seed(rand_seed))
         if torch.cuda.is_available():
             device = torch.device('cuda:0')
         else:
