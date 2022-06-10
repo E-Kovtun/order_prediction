@@ -75,7 +75,7 @@ def evaluate():
 
     metrics_dict = calculate_all_metrics(np.array(all_gt), np.array(all_scores),
                                          np.array(gt_valid), np.array(scores_valid), kind='thr')
-    with open(os.path.join('results/', dataset_name, model_name, f'metrics_final.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join('results/', dataset_name, model_name, f'metrics_look_back_{look_back}_seed_{rand_seed}.json'), 'w', encoding='utf-8') as f:
         json.dump(metrics_dict, f)
 
 
