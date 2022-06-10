@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from sklearn.metrics import roc_auc_score
+
 
 # all_preds [test_size, cat_vocab_size]
 # all_gt [test_size, cat_vocab_size]
@@ -60,11 +62,18 @@ def map(all_scores, all_gt):
 
 
 def calculate_all_metrics(all_preds, all_gt, all_scores):
+    tasks_with_non_trivial_targets = np.where(all_gt.sum(axis=0) != 0)[0]
+    all_preds = all_preds[:, tasks_with_non_trivial_targets]
+    all_gt = all_gt[:, tasks_with_non_trivial_targets]
+    all_scores = all_scores[:, tasks_with_non_trivial_targets]
+
     metrics_dict = {'precision_ex_based': precision_ex_based(all_preds, all_gt), 'recall_ex_based': recall_ex_based(all_preds, all_gt),
-                    'f1_ex_based': f1_ex_based(all_preds, all_gt),
-                    'precision_macro': precision_macro(all_preds, all_gt), 'recall_macro': recall_macro(all_preds, all_gt),
-                    'f1_macro': f1_macro(all_preds, all_gt),
-                    'precision_micro': precision_micro(all_preds, all_gt), 'recall_micro': recall_micro(all_preds, all_gt),
-                    'f1_micro': f1_micro(all_preds, all_gt),
-                    'map': map(all_scores, all_gt)}
+                        'f1_ex_based': f1_ex_based(all_preds, all_gt),
+                        'precision_macro': precision_macro(all_preds, all_gt), 'recall_macro': recall_macro(all_preds, all_gt),
+                        'f1_macro': f1_macro(all_preds, all_gt),
+                        'precision_micro': precision_micro(all_preds, all_gt), 'recall_micro': recall_micro(all_preds, all_gt),
+                        'f1_micro': f1_micro(all_preds, all_gt),
+                        'map': map(all_scores, all_gt),
+                        'roc_auc_micro': roc_auc_score(all_gt, all_scores, average='micro'),
+                        'roc_auc_macro': roc_auc_score(all_gt, all_scores, average='macro')}
     return metrics_dict
