@@ -1,6 +1,6 @@
 from models.LANET import TransformerLabelNet
 from data_preparation.data_reader import OrderReader
-from utils.roc_auc_metrics import calculate_roc_auc_metrics
+from utils.extended_metrics import calculate_all_metrics
 from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader
 import json
@@ -30,6 +30,7 @@ def evaluate():
         else:
             device = torch.device('cpu')
 
+        valid_dataset = OrderReader(prepared_folder, look_back, 'valid')
         test_dataset = OrderReader(prepared_folder, look_back, 'test')
         cat_vocab_size = test_dataset.cat_vocab_size
         id_vocab_size = test_dataset.id_vocab_size
@@ -37,10 +38,28 @@ def evaluate():
         dt_vocab_size = test_dataset.dt_vocab_size
         max_cat_len = test_dataset.max_cat_len
 
+        valid_dataloader = DataLoader(valid_dataset, batch_size=16, shuffle=True, num_workers=2)
         test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=2)
         net = TransformerLabelNet(look_back, cat_vocab_size, id_vocab_size, amount_vocab_size, dt_vocab_size, max_cat_len, emb_dim).to(device)
         net.load_state_dict(torch.load(checkpoint, map_location=device))
         net.train(False)
+
+        print('Processing validation dataset...')
+        scores_valid = []
+        gt_valid = []
+        for batch_ind, batch_arrays in enumerate(valid_dataloader):
+            batch_arrays = [arr.to(device) for arr in batch_arrays]
+            [batch_cat_arr, batch_current_cat, batch_dt_arr, batch_amount_arr, batch_id_arr] = batch_arrays
+
+            conf_scores = net(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr).detach().cpu()
+
+            batch_mask_current_cat = torch.tensor(~(batch_current_cat == cat_vocab_size), dtype=torch.int64).unsqueeze(2).to(device)
+            batch_onehot_current_cat = torch.sum(one_hot(batch_current_cat,
+                                                         num_classes=cat_vocab_size+1) * batch_mask_current_cat, dim=1).to(device)
+
+            gt_valid.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
+            scores_valid.extend(conf_scores.tolist())
+
         print('Testing...')
         all_scores = []
         all_gt = []
@@ -57,17 +76,11 @@ def evaluate():
             all_gt.extend(batch_onehot_current_cat[:, :-1].detach().cpu().tolist())
             all_scores.extend(conf_scores.tolist())
 
-        metrics_dict = calculate_roc_auc_metrics(np.array(all_scores), np.array(all_gt))
-        all_roc_auc_micro.append(metrics_dict['roc_auc_micro'])
-        all_roc_auc_macro.append(metrics_dict['roc_auc_macro'])
-        os.makedirs(os.path.join('results/', dataset_name, model_name), exist_ok=True)
-        with open(os.path.join('results/', dataset_name, model_name, f'metrics_look_back_{look_back}_seed_{rand_seed}.json'), 'w', encoding='utf-8') as f:
+        metrics_dict = calculate_all_metrics(np.array(all_gt), np.array(all_scores),
+                                             np.array(gt_valid), np.array(scores_valid), kind='thr')
+        with open(os.path.join('results/', dataset_name, model_name, f'metrics_final.json'), 'w', encoding='utf-8') as f:
             json.dump(metrics_dict, f)
 
-    df = pd.DataFrame(data=[[np.mean(all_roc_auc_micro), np.std(all_roc_auc_micro)], [np.mean(all_roc_auc_macro), np.std(all_roc_auc_macro)]],
-                      index=['roc_auc_micro', 'roc_auc_macro'],
-                      columns=['mean', 'std'])
-    df.to_csv(os.path.join('results/', dataset_name, model_name, f'metrics_final.csv'))
 
 if __name__ == "__main__":
     evaluate()
