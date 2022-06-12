@@ -84,7 +84,7 @@ class C2AE(torch.nn.Module):
         self.latent_I = torch.eye(latent_dim).to(device)
         self.onehot_current_cat_full = onehot_current_cat_full
 
-    def forward(self, batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr,
+    def forward(self, batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr,
                 batch_onehot_current_cat=None, current_minus1_cat=None):
         """
         Forward pass of C2AE model.
@@ -98,7 +98,7 @@ class C2AE(torch.nn.Module):
             This will result in a logits vec of multilabel preds.
         """
         if self.training:
-            x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
+            x = self.classification(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
             # Calculate feature, and label latent representations.
             fx_x = self.fx(x)
             fe_y = self.fe(batch_onehot_current_cat.float())
@@ -108,13 +108,13 @@ class C2AE(torch.nn.Module):
             # Calculate decoded latent representation.
             fd_z = self.fd(fe_y)
 
-            if current_minus1_cat is not None:
-                fe_y_t = self.fe(current_minus1_cat.float())
-                return fx_x, fe_y, fd_z, fe_y_t
+            # if current_minus1_cat is not None:
+            #     fe_y_t = self.fe(current_minus1_cat.float())
+            #     return fx_x, fe_y, fd_z, fe_y_t
             # current_minus1_cat.float())
             return fx_x, fe_y, fd_z, fe_y_t
         else:
-            x = self.classification(batch_cat_arr, batch_mask_cat, batch_num_arr, batch_id_arr)
+            x = self.classification(batch_cat_arr, batch_dt_arr, batch_amount_arr, batch_id_arr)
             # If evaluating just send through encoder and decoder.
             return self.predict(x)
 
@@ -193,7 +193,7 @@ class C2AE(torch.nn.Module):
         # latent_loss = torch.mean((fx_x - fe_y)**2)
         return latent_loss
 
-    def losses(self, fx_x, fe_y, fd_z, y):  # fe_y_t
+    def losses(self, fx_x, fe_y, fd_z, y, fe_y_t):  # fe_y_t
         """This method calculates the main loss functions required
         when composing the loss function.
         """

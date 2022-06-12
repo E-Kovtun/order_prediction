@@ -43,8 +43,8 @@ def train():
 
     look_back = 3
 
-    prepared_folder = "datasets/data/prepared/liquor/"
-    dataset_name = 'liquor'
+    prepared_folder = "datasets/data/prepared/demand/"
+    dataset_name = 'demand'
     batch_size = 32
     dataloader_num_workers = 0
     rand_seed_list = [1, 2, 3, 4, 5]
@@ -53,7 +53,7 @@ def train():
     all_roc_auc_macro = []
     for rand_seed in tqdm(rand_seed_list):
         random.seed(rand_seed)
-        print(torch.manual_seed(rand_seed))
+        print(rand_seed)
         if torch.cuda.is_available():
             device = torch.device('cuda:0')
         else:
