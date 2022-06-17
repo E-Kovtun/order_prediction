@@ -1,79 +1,74 @@
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
 
 
 # all_preds [test_size, cat_vocab_size]
 # all_gt [test_size, cat_vocab_size]
 
 # Example-Based
-def precision_ex_based(all_preds, all_gt):
-    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=1)[i] / np.sum(all_preds, axis=1)[i]
-                    if np.sum(all_preds, axis=1)[i] > 0 else 0 for i in range(all_gt.shape[0])])
+# def precision_ex_based(all_preds, all_gt):
+#     return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=1)[i] / np.sum(all_preds, axis=1)[i]
+#                     if np.sum(all_preds, axis=1)[i] > 0 else 0 for i in range(all_gt.shape[0])])
+#
+#
+# def recall_ex_based(all_preds, all_gt):
+#     return np.mean(np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1))
+#
+#
+# def f1_ex_based(all_preds, all_gt):
+#     precision_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_preds, axis=1)
+#     recall_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1)
+#     return np.mean([2 * precision_samples[i] * recall_samples[i] / (precision_samples[i] + recall_samples[i])
+#                     if (precision_samples[i] + recall_samples[i]) > 0 else 0 for i in range(all_gt.shape[0])])
+
+# def map(all_scores, all_gt):
+#     all_scores = torch.tensor(all_scores)
+#     all_gt = torch.tensor(all_gt)
+#     return np.mean([np.mean([len(np.intersect1d(torch.topk(all_scores[b, :], k=i, dim=0).indices.numpy(),
+#                                                       torch.where(all_gt[b, :] == 1)[0].numpy())) / i
+#                                     for i in range(1, torch.sum(all_gt[b, :])+1)]) for b in range(all_scores.shape[0])])
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
 
-def recall_ex_based(all_preds, all_gt):
-    return np.mean(np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1))
+def valid_thr(gt_valid, scores_valid):
+    # gt_valid [sample_size, cat_vocab_size] - one-hot
+    # scores_valid [sample_size, cat_vocab_size]
+
+    sigmoid_scores_valid = sigmoid(scores_valid)
+    possible_thr = np.arange(0, 1, 0.01)
+    final_thr = np.array([possible_thr[np.argmax(np.array([f1_score(gt_valid[:, j], sigmoid_scores_valid[:, j] >= thr)
+                                                 for thr in possible_thr]))] for j in range(gt_valid.shape[1])])
+    # final_thr [cat_vocab_size]
+    k = np.median(np.sum(gt_valid, axis=1))
+    return final_thr, k
 
 
-def f1_ex_based(all_preds, all_gt):
-    precision_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_preds, axis=1)
-    recall_samples = np.sum(np.logical_and(all_preds, all_gt), axis=1) / np.sum(all_gt, axis=1)
-    return np.mean([2 * precision_samples[i] * recall_samples[i] / (precision_samples[i] + recall_samples[i])
-                    if (precision_samples[i] + recall_samples[i]) > 0 else 0 for i in range(all_gt.shape[0])])
-
-
-# Label-based
-# Macro averaged
-def precision_macro(all_preds, all_gt):
-    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=0)[i] / np.sum(all_preds, axis=0)[i]
-                    if np.sum(all_preds, axis=0)[i] > 0 else 0 for i in range(all_preds.shape[1])])
-
-
-def recall_macro(all_preds, all_gt):
-    return np.mean([np.sum(np.logical_and(all_preds, all_gt), axis=0)[i] / np.sum(all_gt, axis=0)[i]
-                    if np.sum(all_gt, axis=0)[i] > 0 else 0 for i in range(all_gt.shape[1])])
-
-
-def f1_macro(all_preds, all_gt):
-    return np.mean([2 * np.sum(all_preds * all_gt, axis=0)[i] / (np.sum(all_preds, axis=0)[i] + np.sum(all_gt, axis=0)[i])
-                    if (np.sum(all_preds, axis=0)[i] + np.sum(all_gt, axis=0)[i]) > 0 else 0 for i in range(all_gt.shape[1])])
-
-
-# Micro averaged
-def precision_micro(all_preds, all_gt):
-    return np.sum(np.logical_and(all_preds, all_gt)) / np.sum(all_preds)
-
-
-def recall_micro(all_preds, all_gt):
-    return np.sum(np.logical_and(all_preds, all_gt)) / np.sum(all_gt)
-
-
-def f1_micro(all_preds, all_gt):
-    return np.sum(2 * all_preds * all_gt) / (np.sum(all_preds) + np.sum(all_gt))
-
-
-def map(all_scores, all_gt):
-    all_scores = torch.tensor(all_scores)
-    all_gt = torch.tensor(all_gt)
-    return np.mean([np.mean([len(np.intersect1d(torch.topk(all_scores[b, :], k=i, dim=0).indices.numpy(),
-                                                      torch.where(all_gt[b, :] == 1)[0].numpy())) / i
-                                    for i in range(1, torch.sum(all_gt[b, :])+1)]) for b in range(all_scores.shape[0])])
-
-
-def calculate_all_metrics(all_preds, all_gt, all_scores):
+def calculate_all_metrics(all_gt, all_scores, gt_valid, scores_valid, kind='thr'):
+    # all_gt [sample_size, cat_vocab_size] - one-hot
+    # all_scores [sample_size, cat_vocab_size] - confidence-scores
     tasks_with_non_trivial_targets = np.where(all_gt.sum(axis=0) != 0)[0]
-    all_preds = all_preds[:, tasks_with_non_trivial_targets]
     all_gt = all_gt[:, tasks_with_non_trivial_targets]
     all_scores = all_scores[:, tasks_with_non_trivial_targets]
+    all_scores_sigmoid = sigmoid(all_scores)
 
-    metrics_dict = {'precision_ex_based': precision_ex_based(all_preds, all_gt), 'recall_ex_based': recall_ex_based(all_preds, all_gt),
-                        'f1_ex_based': f1_ex_based(all_preds, all_gt),
-                        'precision_macro': precision_macro(all_preds, all_gt), 'recall_macro': recall_macro(all_preds, all_gt),
-                        'f1_macro': f1_macro(all_preds, all_gt),
-                        'precision_micro': precision_micro(all_preds, all_gt), 'recall_micro': recall_micro(all_preds, all_gt),
-                        'f1_micro': f1_micro(all_preds, all_gt),
-                        'map': map(all_scores, all_gt),
-                        'roc_auc_micro': roc_auc_score(all_gt, all_scores, average='micro'),
-                        'roc_auc_macro': roc_auc_score(all_gt, all_scores, average='macro')}
+    final_thr, k = valid_thr(gt_valid, scores_valid)
+    final_thr = final_thr[tasks_with_non_trivial_targets]
+
+    if kind == 'thr':
+        all_preds = (all_scores_sigmoid >= final_thr).astype(np.int64)
+    if kind == 'topk':
+        all_preds = np.array([np.insert(np.zeros(all_gt.shape[1]), sorted(range(len(all_scores[b, :])), key=lambda i: all_scores[b, :][i])[-k:], 1).tolist()
+                    for b in range(all_gt.shape[0])])
+
+    metrics_dict = {'precision_micro': precision_score(all_gt, all_preds, average='micro'),
+                    'precision_macro': precision_score(all_gt, all_preds, average='macro'),
+                    'recall_micro': recall_score(all_gt, all_preds, average='micro'),
+                    'recall_macro': recall_score(all_gt, all_preds, average='macro'),
+                    'f1_micro': f1_score(all_gt, all_preds, average='micro'),
+                    'f1_macro': f1_score(all_gt, all_preds, average='macro'),
+                    'roc_auc_micro': roc_auc_score(all_gt, all_scores, average='micro'),
+                    'roc_auc_macro': roc_auc_score(all_gt, all_scores, average='macro')}
     return metrics_dict

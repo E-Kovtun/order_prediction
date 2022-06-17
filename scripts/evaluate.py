@@ -1,6 +1,6 @@
 from models.LANET import TransformerLabelNet
 from data_preparation.data_reader import OrderReader
-from utils.extended_metrics import calculate_all_metrics
+from utils.multilabel_metrics import calculate_all_metrics
 from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader
 import json
